@@ -26,12 +26,16 @@ class FakeWindow:
     def __init__(self):
         self.period = "sin mostrar"
         self.last_activity = "sin mostrar"
+        self.alerts = 0
 
     def show_period(self, seconds):
         self.period = seconds
 
     def show_last_activity(self, seconds):
         self.last_activity = seconds
+
+    def show_alert(self):
+        self.alerts += 1
 
 
 def make_controller():
@@ -72,3 +76,29 @@ def test_cp_01_10_al_cumplir_60_minutos_el_periodo_vuelve_a_cero():
     clock.advance(60 * MINUTE)
     controller.tick()
     assert window.period == 0
+
+
+def test_cp_01_07_al_cumplir_60_minutos_avisa():
+    clock, _, window, controller = make_controller()
+    controller.start()
+    clock.advance(60 * MINUTE)
+    controller.tick()
+    assert window.alerts == 1
+
+
+def test_cp_01_06_no_avisa_antes_de_60_minutos():
+    clock, _, window, controller = make_controller()
+    controller.start()
+    clock.advance(60 * MINUTE - 1)
+    controller.tick()
+    assert window.alerts == 0
+
+
+def test_cp_01_08_el_aviso_no_se_repite_en_el_mismo_periodo():
+    clock, _, window, controller = make_controller()
+    controller.start()
+    clock.advance(60 * MINUTE)
+    controller.tick()
+    clock.advance(1)
+    controller.tick()
+    assert window.alerts == 1

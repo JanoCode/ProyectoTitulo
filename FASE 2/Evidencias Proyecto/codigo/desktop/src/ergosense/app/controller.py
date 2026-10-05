@@ -1,4 +1,4 @@
-"""Controlador del monitoreo: actualiza la ventana cada segundo (Sprint 01: PB-01, PB-04 y PB-06)."""
+"""Controlador del monitoreo: actualiza la ventana cada segundo y avisa al cumplirse el período (Sprint 01: PB-01, PB-04, PB-05 y PB-06)."""
 
 
 class MonitorController:
@@ -17,9 +17,10 @@ class MonitorController:
         self.tick()
 
     def tick(self):
-        """Actualiza los valores mostrados en la ventana."""
-        # Primero revisa el período: si se cumplió el límite, vuelve a cero.
-        self._period.check()
+        """Avisa si se cumplió el período y actualiza los valores mostrados en la ventana."""
+        # Primero revisa el período: si se cumplió el límite, avisa y vuelve a cero.
+        if self._period.check():
+            self._window.show_alert()
         # Muestra los segundos del período y los segundos desde la última actividad.
         self._window.show_period(self._period.elapsed_seconds())
         self._window.show_last_activity(self._recorder.seconds_since_last_activity())
