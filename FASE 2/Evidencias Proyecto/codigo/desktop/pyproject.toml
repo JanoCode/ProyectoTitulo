@@ -13,7 +13,7 @@ dependencies = [
 ]
 
 [project.scripts]
-ergosense = "ergosense:main"
+ergosense = "ergosense.app.main:main"
 
 [build-system]
 requires = ["uv_build>=0.11.6,<0.12.0"]
