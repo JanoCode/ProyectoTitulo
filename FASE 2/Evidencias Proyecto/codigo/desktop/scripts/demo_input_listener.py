@@ -16,7 +16,10 @@ print("Escribe en cualquier ventana o haz click. La prueba dura 20 segundos...")
 try:
     for _ in range(20):
         time.sleep(1)
-        print("Segundos desde la última actividad:", recorder.seconds_since_last_activity())
+        print(
+            "Segundos desde la última actividad:",
+            recorder.seconds_since_last_activity(),
+        )
 finally:
     listener.stop()
 print("Fin de la prueba.")
