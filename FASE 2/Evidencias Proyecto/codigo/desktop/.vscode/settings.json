@@ -1,0 +1,6 @@
+{
+  "terminal.integrated.env.windows": {
+    "UV_PROJECT_ENVIRONMENT": "C:\\venvs\\ergosense-desktop"
+  },
+  "python.defaultInterpreterPath": "C:\\venvs\\ergosense-desktop\\Scripts\\python.exe"
+}
