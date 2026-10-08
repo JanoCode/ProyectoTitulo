@@ -1,7 +1,7 @@
 [project]
 name = "ergosense"
 version = "0.1.0"
-description = "Add your description here"
+description = "Aplicación de escritorio de ErgoSense: monitoreo de actividad y avisos de pausa"
 readme = "README.md"
 authors = [
     { name = "BastianPinoso", email = "bastianbip@gmail.com" }
