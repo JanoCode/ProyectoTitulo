@@ -1,6 +1,7 @@
-"""Ventana principal: muestra el tiempo del período, la última actividad y el aviso de pausa (PB-01 y PB-05)."""
+"""Ventana principal del monitoreo y cierre de sesión."""
 
-from PySide6.QtWidgets import QFormLayout, QLabel, QWidget
+from PySide6.QtCore import Signal
+from PySide6.QtWidgets import QFormLayout, QLabel, QPushButton, QWidget
 
 from ergosense.ui.formatting import format_duration
 
@@ -11,6 +12,8 @@ ALERT_MESSAGE = "Llevas 60 minutos de actividad. Te recomendamos realizar una pa
 
 class MainWindow(QWidget):
     """Ventana que solo muestra datos; no calcula tiempos."""
+
+    logout_requested = Signal()
 
     def __init__(self, tray=None):
         super().__init__()  # prepara la parte de QWidget; va siempre primero
@@ -24,12 +27,17 @@ class MainWindow(QWidget):
         self.activity_label = QLabel("--:--:--")
         # El aviso parte vacío y solo se llena al cumplirse el período.
         self.alert_label = QLabel("")
+        self.user_label = QLabel("Sesión iniciada")
+        self.logout_button = QPushButton("Cerrar sesión")
+        self.logout_button.clicked.connect(self.logout_requested.emit)
 
         # QFormLayout ordena filas del tipo "nombre: valor", una debajo de otra.
         layout = QFormLayout()
+        layout.addRow("Cuenta:", self.user_label)
         layout.addRow("Período:", self.period_label)
         layout.addRow("Última actividad:", self.activity_label)
         layout.addRow(self.alert_label)  # un solo widget ocupa la fila completa
+        layout.addRow(self.logout_button)
         self.setLayout(layout)  # asigna el layout a esta ventana
 
     def show_period(self, seconds):
@@ -46,3 +54,7 @@ class MainWindow(QWidget):
         # Minimizada o en segundo plano: el usuario no ve la ventana, así que se avisa por la bandeja.
         if self._tray is not None and (self.isMinimized() or not self.isActiveWindow()):
             self._tray.showMessage(ALERT_TITLE, ALERT_MESSAGE)
+
+    def show_user(self, name: str, email: str) -> None:
+        """Muestra qué cuenta posee la sesión de uso actual."""
+        self.user_label.setText(f"{name} ({email})")

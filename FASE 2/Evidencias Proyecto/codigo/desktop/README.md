@@ -2,7 +2,30 @@
 
 ErgoSense es una aplicación de escritorio para Windows que monitorea el tiempo de uso del computador, recomienda pausas y, en los Sprints siguientes, permitirá controlar el equipo mediante gestos, voz y macros.
 
-## Estado actual: Sprint 01
+## Estado actual: Sprint 02
+
+El Sprint 02 conserva el monitoreo del Sprint 01 y agrega el flujo completo de cuentas y persistencia:
+
+| Funcionalidad | Resultado |
+|---|---|
+| Registro e inicio de sesión | La aplicación crea cuentas e inicia sesión mediante la API. |
+| Tokens | El token de acceso vive en memoria y el de renovación se guarda en el almacén seguro de Windows mediante `keyring`. |
+| Persistencia | Las sesiones de uso y pausas se guardan en PostgreSQL a través del servidor. |
+| Inactividad | Teclado, clic, desplazamiento y movimiento del mouse cuentan como actividad. |
+| Pausas | Después del umbral configurado se abre una pausa; al volver la actividad se cierra y empieza un nuevo período de 60 minutos. |
+| Cierre seguro | Al cerrar la aplicación se finalizan la pausa y la sesión que hayan quedado abiertas. |
+
+La ventana sigue siendo deliberadamente sencilla: la interfaz visual completa corresponde al Sprint 04.
+
+## Requisito previo del Sprint 02
+
+El servidor y PostgreSQL deben estar activos. Desde la carpeta `codigo` ejecuta:
+
+```powershell
+docker compose up --build -d
+```
+
+La aplicación se conecta de forma predeterminada a `http://127.0.0.1:8000`.
 
 El incremento del Sprint 01, "Sistema de alerta y monitoreo de actividad", incluye:
 
@@ -55,6 +78,15 @@ Desde la carpeta `desktop`:
 uv run ergosense
 ```
 
+Al abrirse, ErgoSense intenta recuperar una sesión guardada. Si no existe, muestra el inicio de sesión y permite abrir el formulario de registro. Después de autenticarse crea una sesión de uso remota y carga la configuración de la cuenta.
+
+Para usar otra dirección del servidor:
+
+```powershell
+$env:ERGOSENSE_API_URL = "http://192.168.1.20:8000"
+uv run ergosense
+```
+
 Si aparece `Failed to spawn: ergosense`, la terminal no está en la carpeta `desktop`.
 
 ### Probar el aviso sin esperar 60 minutos
@@ -70,6 +102,19 @@ Al terminar, borra la variable para volver a los 60 minutos:
 
 ```powershell
 Remove-Item Env:ERGOSENSE_LIMIT_SECONDS
+```
+
+El umbral de inactividad se obtiene desde la configuración de la cuenta. Para comprobar el flujo de pausa rápidamente durante desarrollo:
+
+```powershell
+$env:ERGOSENSE_INACTIVITY_SECONDS = "10"
+uv run ergosense
+```
+
+Al terminar:
+
+```powershell
+Remove-Item Env:ERGOSENSE_INACTIVITY_SECONDS
 ```
 
 Si la notificación de Windows no aparece, revisa que el Asistente de concentración esté desactivado, en Configuración → Sistema.
@@ -110,3 +155,24 @@ La organización en capas sigue el Documento de arquitectura. `monitoring` no co
 ## Flujo de trabajo
 
 Cada integrante trabaja en su propia rama (`dev-<nombre>`). Los cambios pasan a `dev` mediante un pull request que revisa el otro integrante, y `dev` pasa a `main` al cerrar cada Sprint. Antes de cada pull request se ejecutan `uv run pytest` y `uv run ruff check`.
+
+## Componentes agregados en el Sprint 02
+
+```text
+src/ergosense/
+|-- api_client/   # solicitudes HTTP, tokens y almacén seguro
+|-- app/          # arranque y coordinación entre módulos
+|-- monitoring/   # actividad, período e inactividad
+`-- ui/           # acceso, registro, ventana y formato del tiempo
+```
+
+`monitoring` no conoce la interfaz ni la base de datos: detecta actividad y genera transiciones. `api_client` no decide reglas de inactividad: solamente conversa con el servidor. El controlador de `app` une ambas partes y le indica a la ventana qué mostrar.
+
+## Seguridad de la sesión
+
+- La contraseña se envía únicamente al registrar o iniciar sesión y el servidor la transforma con bcrypt.
+- El token de acceso dura poco tiempo y permanece en memoria.
+- El token de renovación dura más y se guarda con `keyring`, que usa el administrador de credenciales del sistema.
+- Si vence el acceso, el cliente solicita uno nuevo y repite una sola vez la operación original.
+- Al cerrar sesión, el servidor revoca la renovación y el cliente la borra del equipo.
+- Un cierre normal de la aplicación termina la sesión de uso, pero mantiene la sesión de usuario para poder recuperarla al volver a abrir.

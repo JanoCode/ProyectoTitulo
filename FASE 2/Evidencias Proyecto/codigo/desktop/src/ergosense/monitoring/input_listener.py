@@ -18,7 +18,11 @@ class InputListener:
     def start(self):
         """Comienza a escuchar en hilos propios de pynput."""
         self._keyboard = keyboard.Listener(on_press=self._on_press)
-        self._mouse = mouse.Listener(on_click=self._on_click)
+        self._mouse = mouse.Listener(
+            on_click=self._on_click,
+            on_scroll=self._on_scroll,
+            on_move=self._on_move,
+        )
         self._keyboard.start()
         self._mouse.start()
 
@@ -37,3 +41,11 @@ class InputListener:
         """Avisa que hubo actividad solo al presionar un botón, no al soltarlo."""
         if pressed:
             self._on_activity()
+
+    def _on_scroll(self, _x, _y, _dx, _dy, _injected=False):
+        """El desplazamiento con la rueda también evita una falsa pausa."""
+        self._on_activity()
+
+    def _on_move(self, _x, _y, _injected=False):
+        """El movimiento cuenta como actividad sin guardar la posición."""
+        self._on_activity()
