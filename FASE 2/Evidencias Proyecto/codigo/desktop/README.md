@@ -80,10 +80,10 @@ uv run ergosense
 
 Al abrirse, ErgoSense intenta recuperar una sesión guardada. Si no existe, muestra el inicio de sesión y permite abrir el formulario de registro. Después de autenticarse crea una sesión de uso remota y carga la configuración de la cuenta.
 
-Para usar otra dirección del servidor:
+Para usar otra dirección del servidor, indica la URL completa de la API, incluido el prefijo `/api/v1`:
 
 ```powershell
-$env:ERGOSENSE_API_URL = "http://192.168.1.20:8000"
+$env:ERGOSENSE_API_URL = "http://192.168.1.20:8000/api/v1"
 uv run ergosense
 ```
 
