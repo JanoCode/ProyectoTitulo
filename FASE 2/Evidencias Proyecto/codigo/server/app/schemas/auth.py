@@ -4,7 +4,7 @@ import re
 from datetime import datetime
 
 from email_validator import EmailNotValidError, validate_email
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 def normalize_email(value: str) -> str:
@@ -89,6 +89,30 @@ class SettingResponse(BaseModel):
     inactivity_break_minutes: int
     voice_enabled: bool
     gesture_enabled: bool
+
+
+class SettingUpdateRequest(BaseModel):
+    """Cambios de configuración: solo se modifican los campos enviados (PB-36 y PB-37).
+
+    El período de aviso de 60 minutos no es configurable, por eso no aparece aquí.
+    """
+
+    # Un campo desconocido, por ejemplo uno para cambiar el aviso de 60 minutos, se
+    # rechaza en vez de ignorarse en silencio (CP-03-15).
+    model_config = ConfigDict(extra="forbid")
+
+    # strict: solo números enteros, sin convertir textos como "10" ni decimales como
+    # 2.5. gt=0: el tiempo de inactividad debe ser mayor que cero (CP-03-14). El valor
+    # por defecto None indica "no se envió"; un null explícito se rechaza.
+    inactivity_break_minutes: int = Field(default=None, gt=0, strict=True)
+    voice_enabled: bool = Field(default=None, strict=True)
+    gesture_enabled: bool = Field(default=None, strict=True)
+
+    @model_validator(mode="after")
+    def require_a_change(self):
+        if not self.model_fields_set:
+            raise ValueError("Debes indicar al menos un valor de configuración.")
+        return self
 
 
 class RegisterResponse(BaseModel):

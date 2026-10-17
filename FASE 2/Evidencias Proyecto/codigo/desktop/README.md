@@ -1,50 +1,25 @@
 # ErgoSense – Aplicación de escritorio
 
-ErgoSense es una aplicación de escritorio para Windows que monitorea el tiempo de uso del computador, recomienda pausas y, en los Sprints siguientes, permitirá controlar el equipo mediante gestos, voz y macros.
+ErgoSense es una aplicación de escritorio para Windows que monitorea el tiempo de uso del computador, recomienda pausas y permite controlar el equipo mediante gestos de la mano. En los Sprints siguientes se agregarán el control por voz y las macros.
 
-## Estado actual: Sprint 02
+## Estado actual: Sprint 03
 
-El Sprint 02 conserva el monitoreo del Sprint 01 y agrega el flujo completo de cuentas y persistencia:
-
-| Funcionalidad | Resultado |
+| Sprint | Funcionalidad |
 |---|---|
-| Registro e inicio de sesión | La aplicación crea cuentas e inicia sesión mediante la API. |
-| Tokens | El token de acceso vive en memoria y el de renovación se guarda en el almacén seguro de Windows mediante `keyring`. |
-| Persistencia | Las sesiones de uso y pausas se guardan en PostgreSQL a través del servidor. |
-| Inactividad | Teclado, clic, desplazamiento y movimiento del mouse cuentan como actividad. |
-| Pausas | Después del umbral configurado se abre una pausa; al volver la actividad se cierra y empieza un nuevo período de 60 minutos. |
-| Cierre seguro | Al cerrar la aplicación se finalizan la pausa y la sesión que hayan quedado abiertas. |
+| 01 | Monitoreo de actividad de teclado y mouse, aviso de pausa a los 60 minutos (PB-01 a PB-06). |
+| 02 | Cuentas, inicio de sesión, sesiones de uso y pausas por inactividad guardadas en el servidor (PB-32 a PB-35, PB-48 y PB-49). |
+| 03 | Control mediante gestos con la cámara web y configuración del usuario (PB-07 a PB-13, PB-36 y PB-37). |
 
 La ventana sigue siendo deliberadamente sencilla: la interfaz visual completa corresponde al Sprint 04.
 
-## Requisito previo del Sprint 02
-
-El servidor y PostgreSQL deben estar activos. Desde la carpeta `codigo` ejecuta:
-
-```powershell
-docker compose up --build -d
-```
-
-La aplicación se conecta de forma predeterminada a `http://127.0.0.1:8000`.
-
-El incremento del Sprint 01, "Sistema de alerta y monitoreo de actividad", incluye:
-
-| PB | Funcionalidad |
-|---|---|
-| PB-01 | Registro y visualización del tiempo del período de actividad. |
-| PB-02 y PB-03 | Detección de la actividad del teclado y del mouse en todo el sistema. |
-| PB-04 | Período de actividad de 60 minutos, no configurable por el usuario. |
-| PB-05 | Aviso que recomienda una pausa al cumplirse el período. Si la ventana está minimizada o en segundo plano, el aviso también se muestra como notificación de Windows. |
-| PB-06 | Un período nuevo comienza después de cada aviso. |
-
-La ventana es básica a propósito: la interfaz completa se desarrolla en el Sprint 04.
-
-**Privacidad (RNF-16):** la aplicación registra solo el momento de la última interacción. Nunca guarda qué tecla se presionó ni qué botón del mouse se usó.
+**Privacidad:** la aplicación registra solo el momento de la última interacción, nunca qué tecla se presionó ni qué botón se usó (RNF-16). Las imágenes de la cámara se procesan en memoria: nunca se guardan en disco ni se envían al servidor (RNF-17).
 
 ## Requisitos
 
 - Windows 10 u 11 de 64 bits.
+- Una cámara web, para el control mediante gestos. Sin cámara, el resto de ErgoSense funciona igual.
 - [uv](https://docs.astral.sh/uv/), que administra Python y las dependencias. Si falta Python 3.12, uv lo descarga solo.
+- El servidor de ErgoSense en Docker (ver `../server/README.md`).
 
 Para instalar uv:
 
@@ -70,50 +45,80 @@ El proyecto está dentro de OneDrive. Por eso, el entorno virtual se crea **fuer
 
 3. En VS Code, ejecuta **Python: Select Interpreter** y elige `C:\venvs\ergosense-desktop\Scripts\python.exe`.
 
+El modelo de detección de la mano (`src/ergosense/gestures/models/hand_landmarker.task`, de MediaPipe, licencia Apache 2.0) viene incluido en el repositorio, así que no hay que descargar nada más.
+
 ## Ejecutar la aplicación
 
-Desde la carpeta `desktop`:
+1. Abre Docker Desktop y levanta el servidor. Desde la carpeta `desktop`:
+
+   ```powershell
+   docker compose -f ../docker-compose.yml up -d
+   ```
+
+2. Abre la aplicación:
+
+   ```powershell
+   uv run ergosense
+   ```
+
+Al abrirse, ErgoSense intenta recuperar una sesión guardada. Si no existe, muestra el inicio de sesión y permite abrir el formulario de registro. Después de autenticarse crea una sesión de uso remota, carga la configuración de la cuenta y, si los gestos están activados, enciende la cámara.
+
+La aplicación se conecta a `http://127.0.0.1:8000/api/v1`. Para usar otra dirección del servidor, indica la URL completa de la API, incluido el prefijo `/api/v1`:
 
 ```powershell
-uv run ergosense
-```
-
-Al abrirse, ErgoSense intenta recuperar una sesión guardada. Si no existe, muestra el inicio de sesión y permite abrir el formulario de registro. Después de autenticarse crea una sesión de uso remota y carga la configuración de la cuenta.
-
-Para usar otra dirección del servidor:
-
-```powershell
-$env:ERGOSENSE_API_URL = "http://192.168.1.20:8000"
+$env:ERGOSENSE_API_URL = "http://192.168.1.20:8000/api/v1"
 uv run ergosense
 ```
 
 Si aparece `Failed to spawn: ergosense`, la terminal no está en la carpeta `desktop`.
 
-### Probar el aviso sin esperar 60 minutos
+## Control mediante gestos
 
-Solo para desarrollo, la variable `ERGOSENSE_LIMIT_SECONDS` acorta el período. El usuario final siempre tiene 60 minutos.
+Los gestos se hacen con la **palma de frente a la cámara**, partiendo de la mano abierta. El pulgar funciona como el botón izquierdo y el índice como el derecho.
+
+| Gesto | Cómo se hace | Acción |
+|---|---|---|
+| Mano abierta | Los cinco dedos estirados | Mover el cursor. |
+| Pulgar adentro | Desde la mano abierta, se dobla solo el pulgar hacia la palma | Click izquierdo; si se mantiene 0,4 s o más, arrastre. |
+| Índice abajo | Desde la mano abierta, se dobla solo el índice | Click derecho. |
+| Dos dedos | Índice y medio estirados, el resto doblado | Scroll: subir o bajar la mano. |
+| Puño y "L" | — | Reservados para activar macros en el Sprint 05. |
+
+El cursor sigue el centro de la palma, que no se mueve al doblar el pulgar o el índice, y se mueve solo dentro del monitor principal. Para evitar activaciones accidentales (PB-13), un gesto debe mantenerse unos 0,1 s para contar, cada click se ejecuta una sola vez y las poses que no corresponden a un gesto no hacen nada.
+
+La fila **Gestos** de la ventana muestra si el control está desactivado, si no hay cámara o qué gesto se reconoce.
+
+Los umbrales de cada gesto están en `src/ergosense/gestures/classifier.py` y se calibraron con una mano real. Para calibrarlos con otra mano, ejecuta `uv run python scripts/calibrate_gestures.py`, sigue las instrucciones en pantalla y ajusta las constantes con los valores que muestra.
+
+## Configuración
+
+El botón **Configuración** de la ventana permite:
+
+- cambiar el tiempo de inactividad para registrar una pausa, en minutos enteros entre 1 y 480 (10 por defecto);
+- activar o desactivar el control mediante gestos;
+- activar o desactivar el control por voz, que se usará desde el Sprint 04.
+
+Los cambios se guardan en el servidor, asociados a la cuenta, y se aplican de inmediato, sin reiniciar. El aviso de pausa de 60 minutos no es configurable.
+
+## Variables solo para desarrollo
+
+Permiten probar sin esperar los tiempos reales. El usuario final nunca las usa.
+
+| Variable | Efecto |
+|---|---|
+| `ERGOSENSE_LIMIT_SECONDS` | Acorta el período de aviso de 60 minutos. |
+| `ERGOSENSE_INACTIVITY_SECONDS` | Acorta el tiempo de inactividad; tiene prioridad sobre la configuración de la cuenta. |
 
 ```powershell
 $env:ERGOSENSE_LIMIT_SECONDS = "30"
-uv run ergosense
-```
-
-Al terminar, borra la variable para volver a los 60 minutos:
-
-```powershell
-Remove-Item Env:ERGOSENSE_LIMIT_SECONDS
-```
-
-El umbral de inactividad se obtiene desde la configuración de la cuenta. Para comprobar el flujo de pausa rápidamente durante desarrollo:
-
-```powershell
 $env:ERGOSENSE_INACTIVITY_SECONDS = "10"
 uv run ergosense
 ```
 
-Al terminar:
+Al terminar, bórralas para volver a los tiempos reales:
 
 ```powershell
+Remove-Item Env:ERGOSENSE_LIMIT_SECONDS
 Remove-Item Env:ERGOSENSE_INACTIVITY_SECONDS
 ```
 
@@ -128,45 +133,46 @@ uv run ruff check                    # análisis de estilo
 uv run ruff format                   # formato del código
 ```
 
-Las pruebas usan un reloj falso (`FakeClock`), así que verifican el período de 60 minutos sin esperar. Las pruebas de la interfaz no abren ventanas en la pantalla. Cada prueba indica en su nombre el caso del Plan de pruebas que verifica, por ejemplo `test_cp_01_08_...`.
+Las pruebas no necesitan cámara, servidor ni pantalla: usan relojes, cámaras, manos y mouse falsos, y las ventanas se crean sin mostrarse. Cada prueba indica en su nombre el caso del Plan de pruebas que verifica, por ejemplo `test_cp_03_07_...`.
 
-Los casos que requieren interacción real, como el teclado, el mouse o las notificaciones de Windows, se prueban de forma manual con los scripts de `scripts/`:
+Los casos que requieren interacción real se prueban de forma manual con los scripts de `scripts/`:
 
-```powershell
-uv run python scripts/demo_input_listener.py   # CP-01-03 y CP-01-04
-uv run python scripts/demo_main_window.py      # ventana con datos de ejemplo
-```
+| Script | Casos |
+|---|---|
+| `demo_input_listener.py` | CP-01-03 y CP-01-04: escucha de teclado y mouse. |
+| `demo_main_window.py` | Ventana con datos de ejemplo. |
+| `demo_camera.py` | CP-03-01 y CP-03-02: cámara en espejo y cuadros por segundo. |
+| `demo_hand_tracker.py` | CP-03-03: los 21 puntos de la mano. |
+| `demo_gestures.py` | CP-03-04 y CP-03-10: gesto reconocido y medidas de la mano. |
+| `demo_cursor.py` | CP-03-05: movimiento del cursor. |
+| `demo_control.py` | CP-03-05 a CP-03-10: control completo. Los clicks son reales; se sale con Esc. |
+| `calibrate_gestures.py` | Calibración de los umbrales de los gestos. |
+| `measure_gestures.py` | RNF-05, RNF-06 y RNF-08: cuadros por segundo, tiempo entre el gesto y el click, y uso de CPU. |
+
+Se ejecutan desde la carpeta `desktop`, por ejemplo `uv run python scripts/demo_control.py`.
 
 ## Estructura
 
-```
+```text
 desktop/
 ├── src/ergosense/
-│   ├── app/          # arranque y controlador: conecta el monitoreo con la ventana
-│   ├── monitoring/   # período de actividad, registro y escucha de teclado y mouse
-│   └── ui/           # ventana principal y formato del tiempo
+│   ├── actions/      # acciones del mouse y ejecutor único con cola (clicks y scroll)
+│   ├── api_client/   # solicitudes HTTP, tokens y almacén seguro
+│   ├── app/          # arranque, controlador del monitoreo y aplicación de la configuración
+│   ├── gestures/     # cámara, detección de la mano, gestos, cursor e hilo de gestos
+│   ├── monitoring/   # actividad, período de 60 minutos e inactividad
+│   └── ui/           # ventanas: acceso, principal y configuración
 ├── tests/            # pruebas automatizadas (pytest), con la misma estructura que src
-├── scripts/          # pruebas manuales
+├── scripts/          # pruebas manuales y calibración
 └── pyproject.toml    # dependencias y configuración del proyecto
 ```
 
-La organización en capas sigue el Documento de arquitectura. `monitoring` no conoce la interfaz: el controlador de `app` revisa el período una vez por segundo y le indica a la ventana qué mostrar. La escucha de teclado y mouse corre en sus propios hilos y solo anota la actividad. La ventana se actualiza únicamente desde el hilo principal de Qt.
+La organización en capas sigue el Documento de arquitectura:
 
-## Flujo de trabajo
-
-Cada integrante trabaja en su propia rama (`dev-<nombre>`). Los cambios pasan a `dev` mediante un pull request que revisa el otro integrante, y `dev` pasa a `main` al cerrar cada Sprint. Antes de cada pull request se ejecutan `uv run pytest` y `uv run ruff check`.
-
-## Componentes agregados en el Sprint 02
-
-```text
-src/ergosense/
-|-- api_client/   # solicitudes HTTP, tokens y almacén seguro
-|-- app/          # arranque y coordinación entre módulos
-|-- monitoring/   # actividad, período e inactividad
-`-- ui/           # acceso, registro, ventana y formato del tiempo
-```
-
-`monitoring` no conoce la interfaz ni la base de datos: detecta actividad y genera transiciones. `api_client` no decide reglas de inactividad: solamente conversa con el servidor. El controlador de `app` une ambas partes y le indica a la ventana qué mostrar.
+- `monitoring` y la lógica de `gestures` (clasificador, cursor e intérprete) no conocen la interfaz ni el hardware, por lo que se prueban de forma aislada.
+- `api_client` solo conversa con el servidor; `app` une los módulos y le indica a la ventana qué mostrar.
+- La aplicación usa varios hilos: la ventana y el temporizador de cada segundo corren en el hilo principal de Qt; la escucha de teclado y mouse, en los hilos de pynput; la cámara y los gestos, en el hilo `gestos`; y los clicks y el scroll, en el hilo `acciones`, de a uno y en orden. Los demás hilos se comunican con la ventana mediante señales de Qt, porque solo el hilo principal puede modificarla.
+- Usar los gestos cuenta como actividad, por lo que no se registra una pausa mientras se controla el computador con la mano.
 
 ## Seguridad de la sesión
 
@@ -176,3 +182,7 @@ src/ergosense/
 - Si vence el acceso, el cliente solicita uno nuevo y repite una sola vez la operación original.
 - Al cerrar sesión, el servidor revoca la renovación y el cliente la borra del equipo.
 - Un cierre normal de la aplicación termina la sesión de uso, pero mantiene la sesión de usuario para poder recuperarla al volver a abrir.
+
+## Flujo de trabajo
+
+Cada integrante trabaja en su propia rama (`dev-<nombre>`). Los cambios pasan a `dev` mediante un pull request que revisa el otro integrante, y `dev` pasa a `main` al cerrar cada Sprint. Antes de cada pull request se ejecutan `uv run pytest` y `uv run ruff check`.

@@ -92,6 +92,11 @@ class ApiClient:
         self.settings = self._request("GET", "/settings")
         return self.settings
 
+    def update_settings(self, changes: dict) -> dict:
+        """Guarda en el servidor los cambios de configuración (PB-36 y PB-37)."""
+        self.settings = self._request("PATCH", "/settings", json=changes)
+        return self.settings
+
     def start_usage_session(self, started_at: datetime) -> dict:
         return self._request(
             "POST",

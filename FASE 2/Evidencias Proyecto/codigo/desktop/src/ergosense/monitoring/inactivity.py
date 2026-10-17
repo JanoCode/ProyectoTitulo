@@ -37,6 +37,14 @@ class InactivityMonitor:
         self._events = deque()
         self._lock = Lock()
 
+    def set_limit_seconds(self, limit_seconds: int) -> None:
+        """Cambia el tiempo de inactividad; se aplica a las pausas siguientes (PB-37)."""
+        if limit_seconds <= 0:
+            raise ValueError("El límite de inactividad debe ser positivo.")
+        with self._lock:
+            # Una pausa que ya comenzó no cambia: solo cuenta para las próximas.
+            self._limit_seconds = limit_seconds
+
     def start(self) -> None:
         """Considera el inicio del monitoreo como la actividad inicial."""
         with self._lock:
@@ -87,9 +95,7 @@ class InactivityMonitor:
         """Cierra una pausa abierta cuando se termina la aplicación."""
         with self._lock:
             if self._break_active:
-                self._events.append(
-                    BreakEvent(BreakEventType.ENDED, self._utc_clock())
-                )
+                self._events.append(BreakEvent(BreakEventType.ENDED, self._utc_clock()))
                 self._break_active = False
 
     def drain_events(self) -> list[BreakEvent]:

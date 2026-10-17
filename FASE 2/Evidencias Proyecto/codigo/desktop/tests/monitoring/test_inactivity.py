@@ -2,6 +2,8 @@
 
 from datetime import UTC, datetime, timedelta
 
+import pytest
+
 from ergosense.app.controller import MonitorController
 from ergosense.monitoring.activity_period import ActivityPeriod
 from ergosense.monitoring.activity_recorder import ActivityRecorder
@@ -132,3 +134,24 @@ def test_cp_02_13_regresar_de_una_pausa_reinicia_el_periodo_de_60_minutos():
 
     assert len(remote.ended_breaks) == 1
     assert window.period == 0
+
+
+def test_cp_03_13_el_nuevo_tiempo_se_aplica_a_las_pausas_siguientes():
+    fake_time, monitor = make_monitor(limit_seconds=600)
+    monitor.set_limit_seconds(900)  # el usuario cambió de 10 a 15 minutos
+
+    fake_time.advance(600)
+    monitor.check()
+    assert monitor.drain_events() == []  # con 10 minutos ya habría pausa
+
+    fake_time.advance(300)
+    monitor.check()
+    assert [event.event_type for event in monitor.drain_events()] == [
+        BreakEventType.STARTED
+    ]
+
+
+def test_el_tiempo_de_inactividad_debe_ser_positivo():
+    _, monitor = make_monitor()
+    with pytest.raises(ValueError):
+        monitor.set_limit_seconds(0)

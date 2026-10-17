@@ -1,4 +1,4 @@
-"""Punto de entrada de ErgoSense: crea los objetos y los conecta (Sprint 01)."""
+"""Punto de entrada de ErgoSense: crea los objetos y los conecta (Sprints 01 a 03)."""
 
 import os
 import sys
@@ -14,15 +14,24 @@ from PySide6.QtWidgets import (
     QSystemTrayIcon,
 )
 
+from ergosense.actions.executor import ActionExecutor
+from ergosense.actions.mouse import MouseActions
+from ergosense.actions.screen import primary_screen
 from ergosense.api_client import ApiClient, ApiClientError
 from ergosense.app.controller import MonitorController
+from ergosense.app.preferences import PreferencesController
 from ergosense.app.remote_session import RemoteUsageSession
+from ergosense.gestures.camera import Camera
+from ergosense.gestures.hand_tracker import HandTracker
+from ergosense.gestures.pipeline import GesturePipeline
+from ergosense.gestures.worker import GestureWorker
 from ergosense.monitoring.activity_period import ActivityPeriod
 from ergosense.monitoring.activity_recorder import ActivityRecorder
 from ergosense.monitoring.inactivity import InactivityMonitor
 from ergosense.monitoring.input_listener import InputListener
 from ergosense.ui.auth_dialogs import LoginDialog
 from ergosense.ui.main_window import MainWindow
+from ergosense.ui.settings_dialog import SettingsDialog
 
 
 def main():
@@ -51,16 +60,12 @@ def main():
     # El producto usa la configuración del servidor. La variable opcional solo
     # permite demostrar una pausa sin esperar diez minutos.
     settings = api_client.settings or api_client.get_settings()
-    inactivity_seconds = int(
-        os.environ.get(
-            "ERGOSENSE_INACTIVITY_SECONDS",
-            str(settings["inactivity_break_minutes"] * 60),
-        )
-    )
+    override = os.environ.get("ERGOSENSE_INACTIVITY_SECONDS")
+    inactivity_override = int(override) if override else None
     inactivity = InactivityMonitor(
         time.monotonic,
         lambda: datetime.now(UTC),
-        inactivity_seconds,
+        inactivity_override or settings["inactivity_break_minutes"] * 60,
     )
 
     # Ícono de la bandeja: sin él, Windows no muestra las notificaciones.
@@ -97,6 +102,37 @@ def main():
     listener = InputListener(on_activity=register_activity)
     listener.start()
 
+    # Control por gestos (PB-07 a PB-13): un hilo lee la cámara y mueve el cursor;
+    # los clicks y el scroll pasan por el ejecutor único de acciones.
+    mouse = MouseActions()
+    executor = ActionExecutor(mouse.perform)
+    executor.start()
+    gestures = GestureWorker(
+        Camera(),
+        HandTracker,
+        GesturePipeline(primary_screen(), time.monotonic),
+        mouse,
+        executor,
+        on_activity=register_activity,
+    )
+    # Las señales llegan desde el hilo de gestos; Qt las entrega en el de la ventana.
+    gestures.gesture_changed.connect(window.show_gesture)
+    gestures.camera_unavailable.connect(window.show_camera_unavailable)
+    # Se respeta la preferencia guardada en la cuenta (PB-36): la cámara solo se abre
+    # si el control por gestos está activado.
+    preferences = PreferencesController(
+        gestures, inactivity, window, inactivity_override=inactivity_override
+    )
+    preferences.apply(settings)
+
+    def open_settings():
+        """Abre la configuración y, si se guardó, la aplica sin reiniciar (PB-37)."""
+        dialog = SettingsDialog(api_client, window)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            preferences.apply(api_client.settings)
+
+    window.settings_requested.connect(open_settings)
+
     # El timer corre en el hilo principal: es el único que actualiza la ventana.
     timer = QTimer()
     timer.timeout.connect(controller.tick)
@@ -113,6 +149,10 @@ def main():
         if closed:
             return
         closed = True
+        # Primero los gestos: sueltan el botón si había un arrastre y liberan la
+        # cámara; después el ejecutor termina las acciones pendientes.
+        gestures.stop()
+        executor.stop()
         listener.stop()
         try:
             controller.finish()
