@@ -71,7 +71,8 @@ uv run uvicorn app.main:app --reload
 | POST | `/api/v1/auth/refresh` | Renueva el token de acceso. |
 | POST | `/api/v1/auth/logout` | Revoca el token de renovación. |
 | GET | `/api/v1/users/me` | Devuelve la cuenta autenticada. |
-| GET | `/api/v1/settings` | Consulta la configuración de la cuenta. Su modificación corresponde al Sprint 03. |
+| GET | `/api/v1/settings` | Consulta la configuración de la cuenta. |
+| PATCH | `/api/v1/settings` | Modifica el tiempo de inactividad y el estado de voz y gestos (Sprint 03). Solo cambia los campos enviados. |
 | POST | `/api/v1/usage-sessions` | Inicia una sesión de uso. |
 | PATCH | `/api/v1/usage-sessions/{session_id}` | Finaliza una sesión de uso. |
 | POST | `/api/v1/usage-sessions/{session_id}/breaks` | Inicia una pausa en la sesión indicada. |
