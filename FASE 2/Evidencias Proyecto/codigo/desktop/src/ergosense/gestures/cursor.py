@@ -66,8 +66,8 @@ class CursorMapper:
         # en el derecho o inferior. Fuera de la zona se queda en 0 o en 1.
         active = 1 - 2 * self._margin
 
-        #Para que el cursos no se salga de la pantalla si nosotros sacamops la mano
-        fraction_x = _clamp((x / frame_width - self._margin) / active, 0, 1) 
+        # Para que el cursos no se salga de la pantalla si nosotros sacamops la mano
+        fraction_x = _clamp((x / frame_width - self._margin) / active, 0, 1)
         fraction_y = _clamp((y / frame_height - self._margin) / active, 0, 1)
         return (
             self._left + fraction_x * self._width,
