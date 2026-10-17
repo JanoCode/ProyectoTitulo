@@ -14,7 +14,7 @@ from ergosense.gestures.hand_tracker import HandTracker
 LABELS = {
     Gesture.NONE: "Ninguno",
     Gesture.POINT: "L: mover",
-    Gesture.PINCH: "Puntas juntas: click izquierdo",
+    Gesture.THUMB_IN: "Pulgar adentro: click izquierdo",
     Gesture.INDEX_DOWN: "Indice abajo: click derecho",
     Gesture.TWO_FINGERS: "Dos dedos: scroll",
     Gesture.FIST: "Puno (macros)",
@@ -51,7 +51,6 @@ try:
             write(image, f"dedos  i {m.index:.2f}  m {m.middle:.2f}", 2)
             write(image, f"       a {m.ring:.2f}  me {m.pinky:.2f}", 3)
             write(image, f"pulgar abierto {m.thumb_open:.2f}", 4)
-            write(image, f"pulgar punta   {m.thumb_tip:.2f}", 5)
             for x, y in hand.image_points:
                 cv2.circle(image, (int(x), int(y)), 3, (0, 0, 255), -1)
         cv2.imshow("ErgoSense - gestos", image)

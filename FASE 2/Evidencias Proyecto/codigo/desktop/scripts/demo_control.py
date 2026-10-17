@@ -1,6 +1,6 @@
 """Prueba manual del control completo mediante gestos (CP-03-05 a CP-03-10 y CP-03-16).
 
-L: mover el cursor. Puntas juntas: click izquierdo; mantenidas, arrastre.
+L: mover el cursor. Pulgar adentro: click izquierdo; mantenido, arrastre.
 Índice abajo: click derecho. Dos dedos: scroll subiendo o bajando la mano.
 
 Los clicks son reales: pruébalo sobre una ventana segura, como el Paint o el

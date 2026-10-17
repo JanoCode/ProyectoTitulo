@@ -12,7 +12,7 @@ from ergosense.gestures.classifier import Gesture
 
 # Ajustes de activación (SB03-T19).
 STABLE_FRAMES = 3  # cuadros seguidos que debe durar un gesto (unos 0,1 s)
-HOLD_SECONDS = 0.4  # pellizco más corto: click; más largo: arrastre
+HOLD_SECONDS = 0.4  # pulgar adentro más corto: click; más largo: arrastre
 SCROLL_STEP = 20  # píxeles de la cámara que debe subir o bajar la mano por paso
 
 
@@ -61,7 +61,7 @@ class GestureInterpreter:
         self._hold_seconds = hold_seconds
         self._scroll_step = scroll_step
         self._gesture = Gesture.NONE  # gesto del cuadro anterior
-        self._pinch_started = None  # momento en que empezó el pellizco
+        self._press_started = None  # momento en que el pulgar entró
         self._dragging = False  # el botón izquierdo está presionado
         self._scroll_reference = None  # altura de la mano desde la que se cuenta
 
@@ -81,21 +81,21 @@ class GestureInterpreter:
         """Termina el gesto en curso al apagar los gestos o cerrar la aplicación.
 
         Si había un arrastre, devuelve la acción para soltar el botón, de modo que
-        nunca quede presionado. Un pellizco a medias no genera click.
+        nunca quede presionado. Un pulgar adentro a medias no genera click.
         """
         actions = [Action.LEFT_UP] if self._dragging else []
         self._gesture = Gesture.NONE
-        self._pinch_started = None
+        self._press_started = None
         self._dragging = False
         self._scroll_reference = None
         return tuple(actions)
 
     def _leave(self, gesture):
-        if gesture is Gesture.PINCH:
-            # Se separaron los dedos: si ya era arrastre, se suelta; si no, es click.
+        if gesture is Gesture.THUMB_IN:
+            # El pulgar volvió a abrirse: si ya era arrastre, se suelta; si no, es click.
             # También pasa si la mano sale de la cámara: nunca queda el botón apretado.
             action = Action.LEFT_UP if self._dragging else Action.LEFT_CLICK
-            self._pinch_started = None
+            self._press_started = None
             self._dragging = False
             return [action]
         if gesture is Gesture.TWO_FINGERS:
@@ -103,9 +103,9 @@ class GestureInterpreter:
         return []
 
     def _enter(self, gesture, now, hand_y):
-        if gesture is Gesture.PINCH:
+        if gesture is Gesture.THUMB_IN:
             # Todavía no se sabe si será click o arrastre: se mide cuánto dura.
-            self._pinch_started = now
+            self._press_started = now
         elif gesture is Gesture.INDEX_DOWN:
             # El click derecho ocurre una sola vez, al entrar al gesto. Para repetirlo
             # hay que volver a subir el índice (PB-10 y PB-13).
@@ -115,9 +115,9 @@ class GestureInterpreter:
         return []
 
     def _hold(self, gesture, now, hand_y):
-        if gesture is Gesture.PINCH and not self._dragging:
-            if now - self._pinch_started >= self._hold_seconds:
-                # El pellizco duró lo suficiente: empieza el arrastre (PB-11).
+        if gesture is Gesture.THUMB_IN and not self._dragging:
+            if now - self._press_started >= self._hold_seconds:
+                # El pulgar se mantuvo adentro: empieza el arrastre (PB-11).
                 self._dragging = True
                 return [Action.LEFT_DOWN]
         elif gesture is Gesture.TWO_FINGERS and hand_y is not None:
@@ -143,4 +143,4 @@ class GestureInterpreter:
         # gestos se congela, para que el click caiga donde se apuntaba.
         if gesture is Gesture.POINT:
             return True
-        return gesture is Gesture.PINCH and self._dragging
+        return gesture is Gesture.THUMB_IN and self._dragging

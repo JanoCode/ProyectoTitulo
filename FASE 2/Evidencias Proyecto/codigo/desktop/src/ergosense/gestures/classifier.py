@@ -3,8 +3,9 @@
 Recibe los 21 puntos de la mano en 3D y decide qué gesto es. No usa cámara ni
 MediaPipe, por lo que se prueba con manos inventadas. No hace falta entrenar un
 modelo: cada gesto se reconoce por qué dedos están extendidos o doblados y por
-la distancia del pulgar al índice. Los gestos se hacen con la palma de frente a
-la cámara, partiendo de la "L" (índice arriba y pulgar abierto).
+qué tan abierto está el pulgar. Los gestos se hacen con la palma de frente a la
+cámara, partiendo de la "L" (índice arriba y pulgar abierto): el pulgar funciona
+como el botón izquierdo y el índice como el derecho.
 """
 
 import math
@@ -16,13 +17,13 @@ EXTENDED_REACH = 1.5  # dedo extendido: su punta queda lejos de la muñeca
 FOLDED_REACH = 1.2  # dedo doblado: su punta vuelve hacia la palma
 INDEX_DOWN_EXIT = 1.4  # para salir del click derecho (histéresis)
 THUMB_OPEN_MIN = 0.55  # pulgar abierto: lejos del nudillo del índice
-PINCH_ENTER = 0.2  # para entrar al click izquierdo
-PINCH_EXIT = 0.3  # para salir del click izquierdo (histéresis)
+THUMB_IN_ENTER = 0.4  # para entrar al click izquierdo: pulgar hacia adentro
+THUMB_IN_EXIT = 0.5  # para salir del click izquierdo (histéresis)
 
 # Puntos de MediaPipe que usan las reglas.
 WRIST = 0
 THUMB_TIP = 4
-INDEX_BASE, INDEX_TIP = 5, 8
+INDEX_BASE = 5
 MIDDLE_BASE = 9
 # Nudillo y punta de cada dedo.
 FINGERS = {"index": (5, 8), "middle": (9, 12), "ring": (13, 16), "pinky": (17, 20)}
@@ -33,7 +34,7 @@ class Gesture(StrEnum):
 
     NONE = "none"  # pose no definida: no hace nada (PB-13)
     POINT = "point"  # "L": índice arriba y pulgar abierto: mover el cursor
-    PINCH = "pinch"  # puntas de pulgar e índice juntas: click izquierdo o arrastre
+    THUMB_IN = "thumb_in"  # desde la "L", pulgar hacia adentro: click izquierdo
     INDEX_DOWN = "index_down"  # desde la "L", bajar el índice: click derecho
     TWO_FINGERS = "two_fingers"  # índice y medio arriba: scroll
     FIST = "fist"  # reservado para macros (Sprint 05)
@@ -46,8 +47,9 @@ class HandMeasures:
 
     index, middle, ring y pinky: cuánto se aleja la punta de cada dedo de la
     muñeca, comparado con su nudillo. Sobre 1,5 está extendido; bajo 1,2, doblado.
-    thumb_open y thumb_tip: distancia de la punta del pulgar al nudillo y a la punta
-    del índice, en proporción al tamaño de la mano.
+    thumb_open: distancia de la punta del pulgar al nudillo del índice, en
+    proporción al tamaño de la mano. Grande con el pulgar abierto; chica con el
+    pulgar hacia adentro.
     """
 
     index: float
@@ -55,7 +57,6 @@ class HandMeasures:
     ring: float
     pinky: float
     thumb_open: float
-    thumb_tip: float
 
 
 def measure(points):
@@ -70,16 +71,12 @@ def measure(points):
         to_base = math.dist(points[WRIST], points[base])
         return to_tip / to_base
 
-    def thumb_to(point):
-        return math.dist(points[THUMB_TIP], points[point]) / size
-
     return HandMeasures(
         index=reach(*FINGERS["index"]),
         middle=reach(*FINGERS["middle"]),
         ring=reach(*FINGERS["ring"]),
         pinky=reach(*FINGERS["pinky"]),
-        thumb_open=thumb_to(INDEX_BASE),
-        thumb_tip=thumb_to(INDEX_TIP),
+        thumb_open=math.dist(points[THUMB_TIP], points[INDEX_BASE]) / size,
     )
 
 
@@ -121,25 +118,32 @@ class GestureClassifier:
         if not all(_folded(r) for r in (m.middle, m.ring, m.pinky)):
             return Gesture.NONE
 
-        # Histéresis: si ya se estaba haciendo el click, se exige menos para
+        # Histéresis: si ya se estaba haciendo un click, se exige menos para
         # mantenerlo que para empezarlo. Así un salto de los números no lo corta.
-        pinch_max = PINCH_EXIT if self._previous is Gesture.PINCH else PINCH_ENTER
+        clicking_left = self._previous is Gesture.THUMB_IN
+        thumb_in_max = THUMB_IN_EXIT if clicking_left else THUMB_IN_ENTER
         index_down_max = (
             INDEX_DOWN_EXIT if self._previous is Gesture.INDEX_DOWN else FOLDED_REACH
         )
+        # Durante el click izquierdo, o un arrastre, basta con que el índice no se
+        # doble del todo: si se relaja un poco, el arrastre no se corta.
+        index_up_min = FOLDED_REACH if clicking_left else EXTENDED_REACH
+        thumb_in = m.thumb_open < thumb_in_max
+        thumb_open = m.thumb_open > THUMB_OPEN_MIN
 
-        # Click izquierdo: en el pellizco el índice se curva hacia el pulgar, por eso
-        # basta con que no esté doblado del todo.
-        if not _folded(m.index) and m.thumb_tip < pinch_max:
-            return Gesture.PINCH
-        # Índice abajo: con el pulgar abierto es el click derecho; cerrado, el puño.
         if m.index < index_down_max:
-            if m.thumb_open > THUMB_OPEN_MIN:
+            # Índice abajo: con el pulgar abierto es el click derecho; con el pulgar
+            # adentro, la mano queda cerrada: el puño.
+            if thumb_open:
                 return Gesture.INDEX_DOWN
-            return Gesture.FIST
-        # La "L": índice arriba y pulgar abierto mueve el cursor.
-        if _extended(m.index) and m.thumb_open > THUMB_OPEN_MIN:
-            return Gesture.POINT
-        # Índice o pulgar a medio camino, por ejemplo mientras se baja el índice:
+            if thumb_in:
+                return Gesture.FIST
+        elif m.index > index_up_min:
+            # Índice arriba: con el pulgar abierto es la "L"; adentro, el click.
+            if thumb_in:
+                return Gesture.THUMB_IN
+            if thumb_open:
+                return Gesture.POINT
+        # Índice o pulgar a medio camino, por ejemplo mientras se mueve un dedo:
         # en ese instante no se hace nada.
         return Gesture.NONE

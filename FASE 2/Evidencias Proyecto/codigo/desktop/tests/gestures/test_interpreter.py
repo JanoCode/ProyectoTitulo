@@ -5,7 +5,7 @@ from ergosense.gestures.classifier import Gesture
 from ergosense.gestures.interpreter import GestureInterpreter, GestureStabilizer
 
 L = Gesture.POINT
-PINCH = Gesture.PINCH
+THUMB_IN = Gesture.THUMB_IN
 
 
 class FakeClock:
@@ -43,10 +43,10 @@ def test_cp_03_10_un_gesto_de_un_solo_cuadro_se_ignora():
     stabilizer = GestureStabilizer(frames=3)
     for _ in range(3):
         stabilizer.update(L)
-    # Un solo cuadro con pellizco, por ejemplo al pasar de una pose a otra.
-    assert stabilizer.update(PINCH) is L
+    # Un solo cuadro con el pulgar adentro, por ejemplo al pasar de una pose a otra.
+    assert stabilizer.update(THUMB_IN) is L
     assert stabilizer.update(L) is L
-    assert stabilizer.update(PINCH) is L
+    assert stabilizer.update(THUMB_IN) is L
 
 
 # --- Movimiento del cursor ---
@@ -62,35 +62,35 @@ def test_cp_03_05_la_l_mueve_el_cursor():
 def test_el_cursor_se_congela_durante_el_click():
     _, interpreter = make_interpreter()
     interpreter.update(L)
-    assert interpreter.update(PINCH).move_cursor is False
+    assert interpreter.update(THUMB_IN).move_cursor is False
 
 
 # --- Click izquierdo y arrastre ---
 
 
-def test_cp_03_06_pellizco_corto_es_click_izquierdo():
+def test_cp_03_06_pulgar_adentro_y_afuera_es_click_izquierdo():
     clock, interpreter = make_interpreter()
     interpreter.update(L)
-    interpreter.update(PINCH)
+    interpreter.update(THUMB_IN)
     clock.advance(0.2)
     assert interpreter.update(L).actions == (Action.LEFT_CLICK,)
 
 
-def test_cp_03_07_pellizco_mantenido_no_repite_clicks():
+def test_cp_03_07_pulgar_mantenido_adentro_no_repite_clicks():
     clock, interpreter = make_interpreter()
     actions = []
-    for _ in range(30):  # un segundo de pellizco a 30 cuadros por segundo
-        actions += interpreter.update(PINCH).actions
+    for _ in range(30):  # un segundo con el pulgar adentro, a 30 cuadros por segundo
+        actions += interpreter.update(THUMB_IN).actions
         clock.advance(1 / 30)
     assert Action.LEFT_CLICK not in actions
     assert actions.count(Action.LEFT_DOWN) == 1
 
 
-def test_cp_03_08_pellizco_largo_es_arrastre():
+def test_cp_03_08_pulgar_adentro_mantenido_es_arrastre():
     clock, interpreter = make_interpreter()
-    interpreter.update(PINCH)
+    interpreter.update(THUMB_IN)
     clock.advance(0.4)
-    decision = interpreter.update(PINCH)
+    decision = interpreter.update(THUMB_IN)
     assert decision.actions == (Action.LEFT_DOWN,)
     assert decision.move_cursor is True  # durante el arrastre, el cursor sigue
     assert interpreter.update(L).actions == (Action.LEFT_UP,)
@@ -98,9 +98,9 @@ def test_cp_03_08_pellizco_largo_es_arrastre():
 
 def test_si_la_mano_desaparece_durante_el_arrastre_se_suelta_el_boton():
     clock, interpreter = make_interpreter()
-    interpreter.update(PINCH)
+    interpreter.update(THUMB_IN)
     clock.advance(0.5)
-    interpreter.update(PINCH)
+    interpreter.update(THUMB_IN)
     assert interpreter.update(Gesture.NONE).actions == (Action.LEFT_UP,)
 
 
@@ -181,15 +181,15 @@ def test_si_falta_la_altura_al_empezar_el_scroll_se_toma_en_el_cuadro_siguiente(
 
 def test_al_terminar_en_medio_de_un_arrastre_se_suelta_el_boton():
     clock, interpreter = make_interpreter()
-    interpreter.update(PINCH)
+    interpreter.update(THUMB_IN)
     clock.advance(0.5)
-    interpreter.update(PINCH)
+    interpreter.update(THUMB_IN)
     assert interpreter.finish() == (Action.LEFT_UP,)
 
 
-def test_al_terminar_un_pellizco_a_medias_no_hace_click():
+def test_al_terminar_con_el_pulgar_adentro_a_medias_no_hace_click():
     _, interpreter = make_interpreter()
-    interpreter.update(PINCH)
+    interpreter.update(THUMB_IN)
     assert interpreter.finish() == ()
     # Después de terminar, el intérprete parte de cero.
     assert interpreter.update(L).actions == ()
