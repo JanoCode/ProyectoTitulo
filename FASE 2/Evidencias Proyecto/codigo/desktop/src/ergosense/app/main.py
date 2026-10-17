@@ -1,4 +1,4 @@
-"""Punto de entrada de ErgoSense: crea los objetos y los conecta (Sprint 01)."""
+"""Punto de entrada de ErgoSense: crea los objetos y los conecta (Sprints 01 a 03)."""
 
 import os
 import sys
@@ -14,9 +14,16 @@ from PySide6.QtWidgets import (
     QSystemTrayIcon,
 )
 
+from ergosense.actions.executor import ActionExecutor
+from ergosense.actions.mouse import MouseActions
+from ergosense.actions.screen import primary_screen
 from ergosense.api_client import ApiClient, ApiClientError
 from ergosense.app.controller import MonitorController
 from ergosense.app.remote_session import RemoteUsageSession
+from ergosense.gestures.camera import Camera
+from ergosense.gestures.hand_tracker import HandTracker
+from ergosense.gestures.pipeline import GesturePipeline
+from ergosense.gestures.worker import GestureWorker
 from ergosense.monitoring.activity_period import ActivityPeriod
 from ergosense.monitoring.activity_recorder import ActivityRecorder
 from ergosense.monitoring.inactivity import InactivityMonitor
@@ -97,6 +104,29 @@ def main():
     listener = InputListener(on_activity=register_activity)
     listener.start()
 
+    # Control por gestos (PB-07 a PB-13): un hilo lee la cámara y mueve el cursor;
+    # los clicks y el scroll pasan por el ejecutor único de acciones.
+    mouse = MouseActions()
+    executor = ActionExecutor(mouse.perform)
+    executor.start()
+    gestures = GestureWorker(
+        Camera(),
+        HandTracker,
+        GesturePipeline(primary_screen(), time.monotonic),
+        mouse,
+        executor,
+        on_activity=register_activity,
+    )
+    # Las señales llegan desde el hilo de gestos; Qt las entrega en el de la ventana.
+    gestures.gesture_changed.connect(window.show_gesture)
+    gestures.camera_unavailable.connect(window.show_camera_unavailable)
+    # Se respeta la preferencia guardada en la cuenta (PB-36): la cámara solo se abre
+    # si el control por gestos está activado.
+    if settings["gesture_enabled"]:
+        gestures.start()
+    else:
+        window.show_gestures_disabled()
+
     # El timer corre en el hilo principal: es el único que actualiza la ventana.
     timer = QTimer()
     timer.timeout.connect(controller.tick)
@@ -113,6 +143,10 @@ def main():
         if closed:
             return
         closed = True
+        # Primero los gestos: sueltan el botón si había un arrastre y liberan la
+        # cámara; después el ejecutor termina las acciones pendientes.
+        gestures.stop()
+        executor.stop()
         listener.stop()
         try:
             controller.finish()

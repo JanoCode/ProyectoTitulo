@@ -60,3 +60,26 @@ def test_cp_01_09_en_segundo_plano_avisa_por_la_bandeja(qapp):
     window = MainWindow(tray)  # no se ha mostrado, así que está en segundo plano
     window.show_alert()
     assert len(tray.messages) == 1
+
+
+def test_al_abrir_los_gestos_aparecen_desactivados(qapp):
+    assert MainWindow().gesture_label.text() == "Desactivado"
+
+
+def test_muestra_el_gesto_reconocido_en_castellano(qapp):
+    window = MainWindow()
+    window.show_gesture("thumb_in")
+    assert window.gesture_label.text() == "Activo: click izquierdo"
+
+
+def test_cp_03_02_informa_que_no_hay_camara(qapp):
+    window = MainWindow()
+    window.show_camera_unavailable()
+    assert "cámara" in window.gesture_label.text()
+
+
+def test_puede_volver_a_mostrar_los_gestos_desactivados(qapp):
+    window = MainWindow()
+    window.show_gesture("point")
+    window.show_gestures_disabled()
+    assert window.gesture_label.text() == "Desactivado"
