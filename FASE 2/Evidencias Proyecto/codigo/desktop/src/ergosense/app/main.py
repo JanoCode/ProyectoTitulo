@@ -19,6 +19,7 @@ from ergosense.actions.mouse import MouseActions
 from ergosense.actions.screen import primary_screen
 from ergosense.api_client import ApiClient, ApiClientError
 from ergosense.app.controller import MonitorController
+from ergosense.app.preferences import PreferencesController
 from ergosense.app.remote_session import RemoteUsageSession
 from ergosense.gestures.camera import Camera
 from ergosense.gestures.hand_tracker import HandTracker
@@ -30,6 +31,7 @@ from ergosense.monitoring.inactivity import InactivityMonitor
 from ergosense.monitoring.input_listener import InputListener
 from ergosense.ui.auth_dialogs import LoginDialog
 from ergosense.ui.main_window import MainWindow
+from ergosense.ui.settings_dialog import SettingsDialog
 
 
 def main():
@@ -58,16 +60,12 @@ def main():
     # El producto usa la configuración del servidor. La variable opcional solo
     # permite demostrar una pausa sin esperar diez minutos.
     settings = api_client.settings or api_client.get_settings()
-    inactivity_seconds = int(
-        os.environ.get(
-            "ERGOSENSE_INACTIVITY_SECONDS",
-            str(settings["inactivity_break_minutes"] * 60),
-        )
-    )
+    override = os.environ.get("ERGOSENSE_INACTIVITY_SECONDS")
+    inactivity_override = int(override) if override else None
     inactivity = InactivityMonitor(
         time.monotonic,
         lambda: datetime.now(UTC),
-        inactivity_seconds,
+        inactivity_override or settings["inactivity_break_minutes"] * 60,
     )
 
     # Ícono de la bandeja: sin él, Windows no muestra las notificaciones.
@@ -122,10 +120,18 @@ def main():
     gestures.camera_unavailable.connect(window.show_camera_unavailable)
     # Se respeta la preferencia guardada en la cuenta (PB-36): la cámara solo se abre
     # si el control por gestos está activado.
-    if settings["gesture_enabled"]:
-        gestures.start()
-    else:
-        window.show_gestures_disabled()
+    preferences = PreferencesController(
+        gestures, inactivity, window, inactivity_override=inactivity_override
+    )
+    preferences.apply(settings)
+
+    def open_settings():
+        """Abre la configuración y, si se guardó, la aplica sin reiniciar (PB-37)."""
+        dialog = SettingsDialog(api_client, window)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            preferences.apply(api_client.settings)
+
+    window.settings_requested.connect(open_settings)
 
     # El timer corre en el hilo principal: es el único que actualiza la ventana.
     timer = QTimer()

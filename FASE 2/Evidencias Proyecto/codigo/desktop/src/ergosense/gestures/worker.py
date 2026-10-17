@@ -50,6 +50,11 @@ class GestureWorker(QObject):
         self._thread = threading.Thread(target=self.run, name="gestos", daemon=True)
         self._thread.start()
 
+    @property
+    def running(self):
+        """Indica si el hilo de gestos está funcionando."""
+        return self._thread is not None and self._thread.is_alive()
+
     def request_stop(self):
         """Pide al hilo que termine después del cuadro actual."""
         self._stop_requested.set()

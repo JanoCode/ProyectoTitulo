@@ -4,6 +4,8 @@ Las pruebas llaman a run() directamente, sin crear el hilo, y usan una cámara, 
 detector y un mouse falsos.
 """
 
+import time
+
 import numpy as np
 
 from ergosense.actions.action import Action
@@ -159,9 +161,25 @@ def test_si_la_camara_deja_de_entregar_imagenes_avisa_y_termina():
     assert MAX_MISSED_FRAMES > 1
 
 
+class EndlessCamera(FakeCamera):
+    """Cámara falsa que entrega imágenes sin parar, como una cámara real."""
+
+    def read(self):
+        time.sleep(0.005)
+        return FRAME
+
+
 def test_start_y_stop_usan_un_hilo_propio():
-    worker, camera, *_ = make_worker(camera=FakeCamera(frames=1000))
-    camera.on_empty = lambda: None
+    worker, camera, *_ = make_worker(camera=EndlessCamera())
     worker.start()
     worker.stop()
     assert camera.closed is True
+
+
+def test_running_indica_si_el_hilo_esta_funcionando():
+    worker, *_ = make_worker(camera=EndlessCamera())
+    assert worker.running is False
+    worker.start()
+    assert worker.running is True
+    worker.stop()
+    assert worker.running is False

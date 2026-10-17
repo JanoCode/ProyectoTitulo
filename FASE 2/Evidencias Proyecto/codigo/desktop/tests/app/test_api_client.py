@@ -133,3 +133,30 @@ def test_reabrir_aplicacion_renueva_token_y_carga_la_cuenta():
     assert client.restore_session() is True
     assert client.user["name"] == "Alejandro"
     assert client.settings["inactivity_break_minutes"] == 10
+
+
+def test_update_settings_envia_solo_los_cambios_y_guarda_la_respuesta():
+    store = MemoryTokenStore()
+    sent = []
+
+    def handler(request):
+        sent.append((request.method, request.url.path, json.loads(request.content)))
+        return response(
+            request,
+            200,
+            {
+                "inactivity_break_minutes": 15,
+                "voice_enabled": True,
+                "gesture_enabled": False,
+            },
+        )
+
+    http_client = httpx.Client(transport=httpx.MockTransport(handler))
+    client = ApiClient("http://test/api/v1", token_store=store, http_client=http_client)
+    client._access_token = "access-1"  # sesión ya iniciada
+
+    result = client.update_settings({"inactivity_break_minutes": 15})
+
+    assert sent == [("PATCH", "/api/v1/settings", {"inactivity_break_minutes": 15})]
+    assert result["gesture_enabled"] is False
+    assert client.settings == result

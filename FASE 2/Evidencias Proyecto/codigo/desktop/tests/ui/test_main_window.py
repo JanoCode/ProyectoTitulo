@@ -66,8 +66,15 @@ def test_al_abrir_los_gestos_aparecen_desactivados(qapp):
     assert MainWindow().gesture_label.text() == "Desactivado"
 
 
+def test_al_activar_los_gestos_avisa_que_abre_la_camara(qapp):
+    window = MainWindow()
+    window.show_gestures_starting()
+    assert window.gesture_label.text() == "Iniciando la cámara..."
+
+
 def test_muestra_el_gesto_reconocido_en_castellano(qapp):
     window = MainWindow()
+    window.show_gestures_starting()
     window.show_gesture("thumb_in")
     assert window.gesture_label.text() == "Activo: click izquierdo"
 
@@ -80,6 +87,23 @@ def test_cp_03_02_informa_que_no_hay_camara(qapp):
 
 def test_puede_volver_a_mostrar_los_gestos_desactivados(qapp):
     window = MainWindow()
+    window.show_gestures_starting()
     window.show_gesture("point")
     window.show_gestures_disabled()
     assert window.gesture_label.text() == "Desactivado"
+
+
+def test_cp_03_12_una_senal_atrasada_no_muestra_activos_los_gestos_desactivados(qapp):
+    window = MainWindow()
+    window.show_gestures_starting()
+    window.show_gestures_disabled()
+    window.show_gesture("point")  # llegó tarde, desde el hilo que ya se detuvo
+    assert window.gesture_label.text() == "Desactivado"
+
+
+def test_el_boton_de_configuracion_pide_abrirla(qapp):
+    window = MainWindow()
+    requests = []
+    window.settings_requested.connect(lambda: requests.append(True))
+    window.settings_button.click()
+    assert requests == [True]
