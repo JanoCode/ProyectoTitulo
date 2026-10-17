@@ -12,14 +12,14 @@ BASES = {
     "pinky": (0.04, 0.075, 0.0),
 }
 THUMB_TIPS = {
-    "open": (-0.075, 0.065, 0.0),  # abierto hacia el costado: thumb_open 0,60
-    "half": (-0.015, 0.06, 0.03),  # a medio camino: thumb_open 0,45
-    "in": (-0.01, 0.075, 0.025),  # hacia adentro, sobre la palma: thumb_open 0,34
+    "open": (-0.075, 0.065, 0.0),  # abierto hacia el costado: thumb_open 1,28
+    "half": (-0.038, 0.07, 0.02),  # a medio camino: thumb_open 0,90
+    "in": (-0.01, 0.075, 0.025),  # cruzando la palma: thumb_open 0,62
 }
 
 
 def finger(base, shape):
-    """Los 4 puntos de un dedo: extendido, a medias o doblado hacia la palma."""
+    """Los 4 puntos de un dedo: extendido (1,88), a medias (1,57) o doblado (1,06)."""
     x, y, z = base
     if shape == "extended":
         return [base, (x, y + 0.035, z), (x, y + 0.06, z), (x, y + 0.08, z)]
@@ -27,8 +27,8 @@ def finger(base, shape):
         return [
             base,
             (x, y + 0.03, z + 0.005),
-            (x, y + 0.035, z + 0.02),
-            (x, y + 0.025, z + 0.035),
+            (x, y + 0.045, z + 0.012),
+            (x, y + 0.05, z + 0.02),
         ]
     return [base, (x, y + 0.025, z + 0.01), (x, y + 0.02, z + 0.03), (x, y, z + 0.03)]
 
@@ -36,12 +36,12 @@ def finger(base, shape):
 def make_hand(
     thumb="open",
     index="extended",
-    middle="folded",
-    ring="folded",
-    pinky="folded",
+    middle="extended",
+    ring="extended",
+    pinky="extended",
     scale=1.0,
 ):
-    """Arma los 21 puntos en el orden de MediaPipe. Por defecto, la "L"."""
+    """Arma los 21 puntos en el orden de MediaPipe. Por defecto, la mano abierta."""
     tip = THUMB_TIPS[thumb]
     thumb_base = (-0.035, 0.04, 0.0)
     joint = tuple((a + b) / 2 for a, b in zip(thumb_base, tip, strict=True))
@@ -60,7 +60,10 @@ def classify(hand):
     return GestureClassifier().classify(hand)
 
 
-def test_cp_03_04_la_l_es_mover_el_cursor():
+CLOSED = {"middle": "folded", "ring": "folded", "pinky": "folded"}
+
+
+def test_cp_03_04_la_mano_abierta_es_mover_el_cursor():
     assert classify(make_hand()) is Gesture.POINT
 
 
@@ -73,29 +76,33 @@ def test_cp_03_04_bajar_el_indice_es_click_derecho():
 
 
 def test_cp_03_04_dos_dedos_es_scroll():
-    hand = make_hand(thumb="in", middle="extended")
+    hand = make_hand(thumb="in", ring="folded", pinky="folded")
     assert classify(hand) is Gesture.TWO_FINGERS
 
 
 def test_puno_queda_reservado_para_macros():
-    # Índice abajo y pulgar adentro: los dos "botones" a la vez forman el puño.
-    hand = make_hand(thumb="in", index="folded")
+    hand = make_hand(thumb="in", index="folded", **CLOSED)
     assert classify(hand) is Gesture.FIST
 
 
-def test_mano_abierta_queda_reservada_para_macros():
-    hand = make_hand(middle="extended", ring="extended", pinky="extended")
-    assert classify(hand) is Gesture.OPEN_HAND
+def test_la_l_queda_reservada_para_macros():
+    assert classify(make_hand(**CLOSED)) is Gesture.L_SHAPE
+
+
+def test_cp_03_10_pulgar_e_indice_abajo_a_la_vez_no_es_gesto():
+    # Los dos botones a la vez no tienen una acción definida.
+    hand = make_hand(thumb="in", index="folded")
+    assert classify(hand) is Gesture.NONE
 
 
 def test_cp_03_10_pose_no_definida_no_es_gesto():
     # Índice y meñique extendidos: no corresponde a ningún gesto.
-    hand = make_hand(thumb="in", pinky="extended")
+    hand = make_hand(thumb="in", middle="folded", ring="folded")
     assert classify(hand) is Gesture.NONE
 
 
 def test_cp_03_10_tres_dedos_no_es_gesto():
-    hand = make_hand(thumb="in", middle="extended", ring="extended")
+    hand = make_hand(thumb="in", pinky="folded")
     assert classify(hand) is Gesture.NONE
 
 
@@ -126,7 +133,7 @@ def test_las_medidas_son_proporciones():
 
 
 def test_histeresis_el_click_izquierdo_no_se_corta_por_un_salto():
-    # Pulgar a 0,45: entre entrar (0,4) y salir (0,5) del click izquierdo.
+    # Pulgar a 0,90: entre entrar (0,85) y salir (0,95) del click izquierdo.
     border = make_hand(thumb="half")
     classifier = GestureClassifier()
     classifier.classify(make_hand(thumb="in"))
@@ -142,8 +149,17 @@ def test_histeresis_el_arrastre_no_se_corta_si_el_indice_se_relaja():
     assert classifier.classify(relaxed) is Gesture.THUMB_IN
 
 
+def test_histeresis_el_medio_puede_acompanar_al_indice_al_bajarlo():
+    # Al doblar el índice, el dedo medio suele doblarse un poco con él.
+    sagging = make_hand(index="folded", middle="half")
+    assert classify(sagging) is Gesture.NONE  # sin llegar desde la mano abierta
+    classifier = GestureClassifier()
+    classifier.classify(make_hand())
+    assert classifier.classify(sagging) is Gesture.INDEX_DOWN
+
+
 def test_histeresis_el_click_derecho_no_se_corta_por_un_salto():
-    # Índice a medias: entre entrar (1,2) y salir (1,4) del click derecho.
+    # Índice a medias (1,57): entre entrar (1,5) y salir (1,58) del click derecho.
     border = make_hand(index="half")
     classifier = GestureClassifier()
     classifier.classify(make_hand(index="folded"))

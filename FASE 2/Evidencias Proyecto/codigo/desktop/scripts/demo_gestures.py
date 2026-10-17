@@ -13,12 +13,12 @@ from ergosense.gestures.hand_tracker import HandTracker
 # OpenCV no dibuja tildes ni eñes, por eso los textos van sin ellas.
 LABELS = {
     Gesture.NONE: "Ninguno",
-    Gesture.POINT: "L: mover",
+    Gesture.POINT: "Mano abierta: mover",
     Gesture.THUMB_IN: "Pulgar adentro: click izquierdo",
     Gesture.INDEX_DOWN: "Indice abajo: click derecho",
     Gesture.TWO_FINGERS: "Dos dedos: scroll",
     Gesture.FIST: "Puno (macros)",
-    Gesture.OPEN_HAND: "Mano abierta (macros)",
+    Gesture.L_SHAPE: "L (macros)",
 }
 FONT = cv2.FONT_HERSHEY_SIMPLEX
 GREEN = (0, 255, 0)

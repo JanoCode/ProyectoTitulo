@@ -1,6 +1,6 @@
 """Prueba manual del movimiento del cursor (CP-03-05).
 
-Con la "L" frente a la cámara, el cursor sigue el nudillo del índice. Con
+Con la mano abierta frente a la cámara, el cursor sigue el centro de la palma. Con
 cualquier otro gesto, el cursor se queda quieto. Presiona q en la ventana
 de la cámara para salir. Ninguna imagen se guarda (RNF-17).
 """
@@ -12,10 +12,8 @@ from pynput.mouse import Controller
 
 from ergosense.gestures.camera import Camera
 from ergosense.gestures.classifier import Gesture, GestureClassifier
-from ergosense.gestures.cursor import CursorMapper
+from ergosense.gestures.cursor import CURSOR_POINT, CursorMapper
 from ergosense.gestures.hand_tracker import HandTracker
-
-INDEX_BASE = 5  # el nudillo del índice: el punto que sigue el cursor
 
 # Tamaño del monitor principal, según Windows.
 user32 = ctypes.windll.user32
@@ -30,7 +28,7 @@ classifier = GestureClassifier()
 mapper = CursorMapper(screen)
 mouse = Controller()
 
-print("Haz la L para mover el cursor. Presiona q en la ventana de la cámara.")
+print("Abre la mano para mover el cursor. Presiona q en la ventana de la cámara.")
 try:
     while True:
         frame = camera.read()
@@ -44,8 +42,8 @@ try:
             gesture = classifier.classify(hand.world_points)
             if gesture is Gesture.POINT:
                 height, width = frame.shape[:2]
-                knuckle = hand.image_points[INDEX_BASE]
-                mouse.position = mapper.update(knuckle, (width, height))
+                palm = hand.image_points[CURSOR_POINT]
+                mouse.position = mapper.update(palm, (width, height))
 
         image = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
         image = cv2.resize(image, (320, 240))  # ventana chica para que no estorbe

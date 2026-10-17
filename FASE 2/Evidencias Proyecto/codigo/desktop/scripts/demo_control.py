@@ -1,7 +1,8 @@
 """Prueba manual del control completo mediante gestos (CP-03-05 a CP-03-10 y CP-03-16).
 
-L: mover el cursor. Pulgar adentro: click izquierdo; mantenido, arrastre.
-Índice abajo: click derecho. Dos dedos: scroll subiendo o bajando la mano.
+Mano abierta: mover el cursor. Pulgar adentro: click izquierdo; mantenido,
+arrastre. Índice abajo: click derecho. Dos dedos: scroll subiendo o bajando la
+mano.
 
 Los clicks son reales: pruébalo sobre una ventana segura, como el Paint o el
 Bloc de notas. Presiona Esc en cualquier ventana para salir. Ninguna imagen se
@@ -18,11 +19,9 @@ from pynput import keyboard
 from ergosense.actions.mouse import MouseActions
 from ergosense.gestures.camera import Camera
 from ergosense.gestures.classifier import GestureClassifier
-from ergosense.gestures.cursor import CursorMapper
+from ergosense.gestures.cursor import CURSOR_POINT, CursorMapper
 from ergosense.gestures.hand_tracker import HandTracker
 from ergosense.gestures.interpreter import GestureInterpreter, GestureStabilizer
-
-INDEX_BASE = 5  # el nudillo del índice: el punto que sigue el cursor
 
 # Tamaño del monitor principal, según Windows.
 user32 = ctypes.windll.user32
@@ -61,14 +60,14 @@ try:
         # Cámara -> mano -> gesto del cuadro -> gesto estable -> decisión.
         raw = classifier.classify(None if hand is None else hand.world_points)
         gesture = stabilizer.update(raw)
-        knuckle = None if hand is None else hand.image_points[INDEX_BASE]
-        decision = interpreter.update(gesture, None if knuckle is None else knuckle[1])
+        palm = None if hand is None else hand.image_points[CURSOR_POINT]
+        decision = interpreter.update(gesture, None if palm is None else palm[1])
 
         if hand is None:
             mapper.reset()  # al volver la mano, el cursor irá directo a ella
         elif decision.move_cursor:
             height, width = frame.shape[:2]
-            mouse.move(mapper.update(knuckle, (width, height)))
+            mouse.move(mapper.update(palm, (width, height)))
         for action in decision.actions:
             mouse.perform(action)
             print("Acción:", action.value)

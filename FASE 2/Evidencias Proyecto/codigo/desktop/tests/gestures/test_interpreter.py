@@ -198,9 +198,9 @@ def test_al_terminar_con_el_pulgar_adentro_a_medias_no_hace_click():
 # --- Gestos sin acción ---
 
 
-def test_cp_03_10_puno_y_mano_abierta_no_hacen_nada():
+def test_cp_03_10_puno_y_la_l_no_hacen_nada():
     _, interpreter = make_interpreter()
-    for gesture in (Gesture.FIST, Gesture.OPEN_HAND, Gesture.NONE):
+    for gesture in (Gesture.FIST, Gesture.L_SHAPE, Gesture.NONE):
         decision = interpreter.update(gesture)
         assert decision.actions == ()
         assert decision.move_cursor is False

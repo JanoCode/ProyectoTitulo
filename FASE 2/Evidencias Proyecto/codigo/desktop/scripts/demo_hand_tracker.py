@@ -73,8 +73,8 @@ try:
                 cv2.circle(image, pixels[number], 5, (0, 0, 255), -1)
                 label = (pixels[number][0] + 6, pixels[number][1] - 6)
                 cv2.putText(image, str(number), label, FONT, 0.5, (0, 255, 255), 1)
-            # El nudillo del índice (5) es el punto que seguirá el cursor.
-            cv2.circle(image, pixels[5], 10, GREEN, 2)
+            # El centro de la palma (9) es el punto que sigue el cursor.
+            cv2.circle(image, pixels[9], 10, GREEN, 2)
             # Se comparan las mismas distancias en 2D (imagen) y en 3D (metros).
             side_2d, tip_2d = thumb_ratios(hand.image_points)
             side_3d, tip_3d = thumb_ratios(hand.world_points)

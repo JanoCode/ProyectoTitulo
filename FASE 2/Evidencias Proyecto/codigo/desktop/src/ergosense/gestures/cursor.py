@@ -7,6 +7,11 @@ No mueve el mouse: solo calcula hacia dónde debe ir.
 
 import math
 
+# Punto de la mano que sigue el cursor: la base del dedo medio, en el centro de la
+# palma. No se mueve al doblar el pulgar ni el índice, así los clicks no desplazan
+# el cursor.
+CURSOR_POINT = 9
+
 # Ajustes de sensibilidad (SB03-T10).
 ACTIVE_MARGIN = 0.2  # se ignora el 20 % de cada borde de la imagen
 SMOOTHING = 0.35  # fracción del camino que avanza el cursor en cada cuadro
