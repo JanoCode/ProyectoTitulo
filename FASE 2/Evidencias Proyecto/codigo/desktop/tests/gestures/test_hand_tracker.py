@@ -19,29 +19,32 @@ class FakeClock:
 
 
 class FakePoint:
-    """Punto como los de MediaPipe: x e y normalizados entre 0 y 1."""
+    """Punto como los de MediaPipe: en la imagen, x e y van de 0 a 1; en 3D, metros."""
 
-    def __init__(self, x, y):
+    def __init__(self, x, y, z=0.0):
         self.x = x
         self.y = y
+        self.z = z
 
 
 class FakeResult:
-    def __init__(self, hands):
+    def __init__(self, hands, world_hands):
         self.hand_landmarks = hands
+        self.hand_world_landmarks = world_hands
 
 
 class FakeLandmarker:
     """Detector falso: siempre ve las manos indicadas y anota las marcas de tiempo."""
 
-    def __init__(self, hands=None):
+    def __init__(self, hands=None, world_hands=None):
         self._hands = hands or []
+        self._world_hands = world_hands or []
         self.timestamps = []
         self.closed = False
 
     def detect_for_video(self, image, timestamp_ms):
         self.timestamps.append(timestamp_ms)
-        return FakeResult(self._hands)
+        return FakeResult(self._hands, self._world_hands)
 
     def close(self):
         self.closed = True
@@ -57,13 +60,25 @@ def black_frame(height=100, width=200):
     return np.zeros((height, width, 3), dtype=np.uint8)
 
 
+def make_landmarker_with_hand():
+    image_hand = [FakePoint(0.5, 0.25)] * 21
+    world_hand = [FakePoint(0.01, 0.02, 0.03)] * 21
+    return FakeLandmarker(hands=[image_hand], world_hands=[world_hand])
+
+
 def test_cp_03_03_entrega_los_21_puntos_en_pixeles():
-    hand = [FakePoint(0.5, 0.25)] * 21
-    tracker = make_tracker(FakeLandmarker(hands=[hand]))
-    points = tracker.detect(black_frame(height=100, width=200))
-    assert len(points) == 21
+    tracker = make_tracker(make_landmarker_with_hand())
+    hand = tracker.detect(black_frame(height=100, width=200))
+    assert len(hand.image_points) == 21
     # La mitad de 200 de ancho y un cuarto de 100 de alto.
-    assert points[0] == (100.0, 25.0)
+    assert hand.image_points[0] == (100.0, 25.0)
+
+
+def test_entrega_los_21_puntos_en_3d_en_metros():
+    tracker = make_tracker(make_landmarker_with_hand())
+    hand = tracker.detect(black_frame())
+    assert len(hand.world_points) == 21
+    assert hand.world_points[0] == (0.01, 0.02, 0.03)
 
 
 def test_sin_mano_devuelve_none():

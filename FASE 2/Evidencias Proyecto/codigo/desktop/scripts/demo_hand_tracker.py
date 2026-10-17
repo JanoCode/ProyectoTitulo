@@ -1,7 +1,7 @@
 """Prueba manual de la detección de la mano (CP-03-03).
 
-Dibuja los 21 puntos y muestra las distancias que usarán los gestos, para
-calibrarlas. Presiona q para salir. Ninguna imagen se guarda (RNF-17).
+Dibuja los 21 puntos y muestra las distancias que usarán los gestos, en 2D y en
+3D, para calibrarlas. Presiona q para salir. Ninguna imagen se guarda (RNF-17).
 """
 
 import math
@@ -32,6 +32,15 @@ def write(image, text, row):
     cv2.putText(image, text, (10, 30 * row), FONT, 0.8, GREEN, 2)
 
 
+def thumb_ratios(points):
+    """Distancias del pulgar al costado y a la punta del índice, según el tamaño de la mano."""
+    # Tamaño de la mano: de la muñeca (0) a la base del dedo medio (9).
+    size = math.dist(points[0], points[9])
+    side = math.dist(points[4], points[6]) / size  # click izquierdo
+    tip = math.dist(points[4], points[8]) / size  # click derecho
+    return side, tip
+
+
 camera = Camera()
 if not camera.open():
     print("No se encontró una cámara disponible.")
@@ -45,17 +54,17 @@ try:
         frame = camera.read()
         if frame is None:
             continue
-        points = tracker.detect(frame)
+        hand = tracker.detect(frame)
         now = time.perf_counter()
         fps = 0.9 * fps + 0.1 * (1 / (now - last))
         last = now
 
         image = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
         write(image, f"{fps:.0f} FPS", 1)
-        if points is None:
+        if hand is None:
             write(image, "Sin mano", 2)
         else:
-            pixels = [(int(x), int(y)) for x, y in points]
+            pixels = [(int(x), int(y)) for x, y in hand.image_points]
             for chain in CHAINS:
                 # pairwise une cada punto con el siguiente: (0, 1), (1, 2), ...
                 for a, b in pairwise(chain):
@@ -66,12 +75,12 @@ try:
                 cv2.putText(image, str(number), label, FONT, 0.5, (0, 255, 255), 1)
             # El nudillo del índice (5) es el punto que seguirá el cursor.
             cv2.circle(image, pixels[5], 10, GREEN, 2)
-            # Tamaño de la mano: de la muñeca (0) a la base del dedo medio (9).
-            size = math.dist(points[0], points[9])
-            side = math.dist(points[4], points[6]) / size  # click izquierdo
-            tip = math.dist(points[4], points[8]) / size  # click derecho
-            write(image, f"pulgar-costado: {side:.2f}", 2)
-            write(image, f"pulgar-punta:   {tip:.2f}", 3)
+            # Se comparan las mismas distancias en 2D (imagen) y en 3D (metros).
+            side_2d, tip_2d = thumb_ratios(hand.image_points)
+            side_3d, tip_3d = thumb_ratios(hand.world_points)
+            write(image, "              2D    3D", 2)
+            write(image, f"pulgar-costado {side_2d:.2f}  {side_3d:.2f}", 3)
+            write(image, f"pulgar-punta   {tip_2d:.2f}  {tip_3d:.2f}", 4)
         cv2.imshow("ErgoSense - mano", image)
         if cv2.waitKey(1) & 0xFF == ord("q"):
             break
