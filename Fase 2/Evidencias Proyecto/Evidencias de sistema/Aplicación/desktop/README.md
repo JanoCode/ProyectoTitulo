@@ -186,3 +186,41 @@ La organización en capas sigue el Documento de arquitectura:
 ## Flujo de trabajo
 
 Cada integrante trabaja en su propia rama (`dev-<nombre>`). Los cambios pasan a `dev` mediante un pull request que revisa el otro integrante, y `dev` pasa a `main` al cerrar cada Sprint. Antes de cada pull request se ejecutan `uv run pytest` y `uv run ruff check`.
+# Control por voz e interfaz del Sprint 04
+
+La ventana principal permite activar gestos y voz por separado. Las preferencias
+se guardan en la cuenta mediante la API y se aplican al iniciar la aplicación.
+El monitoreo permanece activo y el aviso de descanso conserva sus 60 minutos.
+
+El reconocimiento utiliza SpeechRecognition con Google y el idioma es-CL.
+Requiere conexión a internet y envía audio del micrófono al servicio de
+reconocimiento mientras la voz está activada. El audio no se guarda en archivos.
+La captura usa sounddevice y se procesa fuera del hilo de la ventana.
+
+Los comandos base son `clic izquierdo`, `clic derecho`, `subir`, `bajar`,
+`activar gestos`, `desactivar gestos`, `activar voz`, `desactivar voz`,
+`activar gestos y voz` y `desactivar gestos y voz`. Subir y bajar desplazan
+la rueda un paso; los clics actúan en la posición actual del cursor.
+Solo se acepta la frase completa, sin palabras adicionales ni coincidencias
+parciales. Las acciones de voz y gestos pasan por el mismo ejecutor.
+
+Al apagar la voz se cierra el micrófono y se descartan los comandos pendientes.
+Para reactivarla se usa el botón de la ventana o la configuración. Un micrófono
+apagado no puede reconocer el comando de reactivación. Esta es una limitación
+del criterio que solicita reactivar por voz con el reconocimiento desactivado.
+La falta de micrófono y los errores de conexión se muestran en la ventana.
+
+## Validación con dispositivos
+
+1. Iniciar la API y entrar a ErgoSense con una cuenta.
+2. Activar voz y comprobar el indicador de micrófono en uso.
+3. Pronunciar cada comando después de una pausa y comprobar una acción por frase.
+4. Probar conversaciones, ruido y frases similares; no deben ejecutar acciones.
+5. Activar y desactivar gestos, voz y ambos mediante los botones y comandos.
+6. Apagar voz y comprobar que hablar ya no ejecuta acciones ni usa el micrófono.
+7. Reiniciar y comprobar las preferencias de la cuenta.
+8. Probar sin micrófono y sin internet; comprobar que monitoreo y gestos continúan.
+9. Comprobar el aviso y el reinicio del período con el procedimiento de monitoreo.
+
+Las pruebas automáticas utilizan dispositivos simulados; el reconocimiento real,
+el ruido ambiental y la precisión de cámara requieren esta validación práctica.
