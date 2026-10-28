@@ -8,7 +8,8 @@ vez que el usuario guarda cambios, sin necesidad de reiniciar.
 class PreferencesController:
     """Enciende o apaga los gestos y ajusta el tiempo de inactividad."""
 
-    def __init__(self, gestures, inactivity, window, inactivity_override=None):
+    def __init__(self, gestures, inactivity, window, inactivity_override=None, voice=None):
+        self._voice = voice
         self._gestures = gestures
         self._inactivity = inactivity
         self._window = window
@@ -22,6 +23,12 @@ class PreferencesController:
         # El nuevo tiempo cuenta para las pausas siguientes; el aviso de 60 minutos no
         # depende de esta configuración (PB-37).
         self._inactivity.set_limit_seconds(seconds)
+        if self._voice is not None:
+            self._window.set_voice_enabled(settings["voice_enabled"])
+            if settings["voice_enabled"]:
+                self._voice.start()
+            else:
+                self._voice.stop()
 
         if settings["gesture_enabled"]:
             # Si ya estaba funcionando, no se abre la cámara otra vez.

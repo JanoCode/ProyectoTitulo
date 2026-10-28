@@ -1,4 +1,4 @@
-"""Punto de entrada de ErgoSense: crea los objetos y los conecta (Sprints 01 a 03)."""
+"""Punto de entrada de ErgoSense: integra monitoreo, gestos, voz y preferencias."""
 
 import os
 import sys
@@ -32,6 +32,8 @@ from ergosense.monitoring.input_listener import InputListener
 from ergosense.ui.auth_dialogs import LoginDialog
 from ergosense.ui.main_window import MainWindow
 from ergosense.ui.settings_dialog import SettingsDialog
+from ergosense.voice.controller import VoiceController
+from ergosense.voice.worker import VoiceWorker
 
 
 def main():
@@ -120,10 +122,26 @@ def main():
     gestures.camera_unavailable.connect(window.show_camera_unavailable)
     # Se respeta la preferencia guardada en la cuenta (PB-36): la cámara solo se abre
     # si el control por gestos está activado.
+    voice = VoiceWorker()
+    voice.status_changed.connect(window.show_voice_status)
     preferences = PreferencesController(
-        gestures, inactivity, window, inactivity_override=inactivity_override
+        gestures, inactivity, window, inactivity_override=inactivity_override, voice=voice
     )
     preferences.apply(settings)
+
+    def update_features(changes):
+        try:
+            updated = api_client.update_settings(changes)
+            preferences.apply(updated)
+        except ApiClientError as error:
+            QMessageBox.warning(window, "Configuración", str(error))
+
+    voice_controller = VoiceController(
+        lambda: api_client.settings.get("voice_enabled") and voice.running,
+        executor, update_features, register_activity,
+    )
+    voice.recognized.connect(voice_controller.handle)
+    window.feature_requested.connect(lambda key, value: update_features({key: value}))
 
     def open_settings():
         """Abre la configuración y, si se guardó, la aplica sin reiniciar (PB-37)."""
@@ -152,6 +170,7 @@ def main():
         # Primero los gestos: sueltan el botón si había un arrastre y liberan la
         # cámara; después el ejecutor termina las acciones pendientes.
         gestures.stop()
+        voice.stop()
         executor.stop()
         listener.stop()
         try:

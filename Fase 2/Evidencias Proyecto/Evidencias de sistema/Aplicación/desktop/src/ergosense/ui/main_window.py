@@ -30,6 +30,7 @@ class MainWindow(QWidget):
 
     logout_requested = Signal()
     settings_requested = Signal()  # el usuario quiere abrir la configuración
+    feature_requested = Signal(str, bool)
 
     def __init__(self, tray=None):
         super().__init__()  # prepara la parte de QWidget; va siempre primero
@@ -46,6 +47,17 @@ class MainWindow(QWidget):
         self.user_label = QLabel("Sesión iniciada")
         # Estado del control por gestos: desactivado, sin cámara o el gesto actual.
         self.gesture_label = QLabel(GESTURES_DISABLED)
+        self.voice_label = QLabel("Desactivado")
+        self.monitor_label = QLabel("Activo · aviso cada 60 minutos")
+        self._voice_enabled = False
+        self.voice_button = QPushButton("Activar voz")
+        self.voice_button.clicked.connect(
+            lambda: self.feature_requested.emit("voice_enabled", not self._voice_enabled)
+        )
+        self.gesture_button = QPushButton("Activar gestos")
+        self.gesture_button.clicked.connect(
+            lambda: self.feature_requested.emit("gesture_enabled", not self._gestures_active)
+        )
         # Las señales del hilo de gestos llegan con un pequeño retraso. Si los gestos
         # ya se desactivaron, una señal atrasada no debe volver a mostrarlos activos.
         self._gestures_active = False
@@ -60,6 +72,23 @@ class MainWindow(QWidget):
         layout.addRow("Período:", self.period_label)
         layout.addRow("Última actividad:", self.activity_label)
         layout.addRow("Gestos:", self.gesture_label)
+        layout.addRow("Monitoreo:", self.monitor_label)
+        layout.addRow("Voz:", self.voice_label)
+        voice_notice = QLabel(
+            "La voz envía audio a Google para reconocer comandos en español. "
+            "Requiere internet. Al desactivarla se cierra el micrófono."
+        )
+        voice_notice.setWordWrap(True)
+        layout.addRow(voice_notice)
+        commands_hint = QLabel(
+            "Comandos: clic izquierdo, clic derecho, subir, bajar; activar o "
+            "desactivar gestos, voz, gestos y voz. Para volver a encender la voz "
+            "después de apagarla, utiliza el botón Activar voz."
+        )
+        commands_hint.setWordWrap(True)
+        layout.addRow(commands_hint)
+        layout.addRow(self.gesture_button)
+        layout.addRow(self.voice_button)
         layout.addRow(self.alert_label)  # un solo widget ocupa la fila completa
         layout.addRow(self.settings_button)
         layout.addRow(self.logout_button)
@@ -87,6 +116,7 @@ class MainWindow(QWidget):
     def show_gestures_starting(self):
         """Muestra que se está abriendo la cámara para el control por gestos."""
         self._gestures_active = True
+        self.gesture_button.setText("Desactivar gestos")
         self.gesture_label.setText(GESTURES_STARTING)
 
     def show_gesture(self, gesture):
@@ -98,9 +128,21 @@ class MainWindow(QWidget):
     def show_gestures_disabled(self):
         """Muestra que el control por gestos está desactivado."""
         self._gestures_active = False
+        self.gesture_button.setText("Activar gestos")
         self.gesture_label.setText(GESTURES_DISABLED)
 
     def show_camera_unavailable(self):
         """Informa que no hay cámara; el resto de ErgoSense sigue funcionando (PB-07)."""
         self._gestures_active = False
+        self.gesture_button.setText("Activar gestos")
         self.gesture_label.setText(CAMERA_UNAVAILABLE)
+
+    def set_voice_enabled(self, enabled):
+        self._voice_enabled = enabled
+        self.voice_button.setText("Desactivar voz" if enabled else "Activar voz")
+        if not enabled:
+            self.voice_label.setText("Desactivado")
+
+    def show_voice_status(self, status):
+        if self._voice_enabled:
+            self.voice_label.setText(status)

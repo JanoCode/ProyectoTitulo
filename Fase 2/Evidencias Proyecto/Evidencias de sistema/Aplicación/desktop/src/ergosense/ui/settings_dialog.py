@@ -39,8 +39,8 @@ class SettingsDialog(QDialog):
         self.minutes_input.setValue(settings["inactivity_break_minutes"])
         self.gestures_input = QCheckBox("Control mediante gestos")
         self.gestures_input.setChecked(settings["gesture_enabled"])
-        # La voz llega en el Sprint 04; su preferencia ya se guarda (PB-36).
-        self.voice_input = QCheckBox("Control por voz (aún no disponible)")
+        # Cada preferencia se aplica a su módulo al confirmar el guardado.
+        self.voice_input = QCheckBox("Control por voz")
         self.voice_input.setChecked(settings["voice_enabled"])
         self.error_label = make_error_label()
 
