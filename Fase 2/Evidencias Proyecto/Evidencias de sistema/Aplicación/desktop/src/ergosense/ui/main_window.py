@@ -422,6 +422,9 @@ class MainWindow(QWidget):
         self.camera_stack.setCurrentWidget(self.placeholder)
         self.camera_button.show()
         self.camera_indicator.show()
+        if self._gestures_active:
+            # Al reintentar, la tarjeta deja de decir "Cámara no disponible".
+            self._show_hand_status()
 
     def show_frame(self, image, points):
         """Recibe un cuadro del hilo de gestos para la vista previa."""
@@ -461,9 +464,11 @@ class MainWindow(QWidget):
         self.camera_stack.setCurrentWidget(self.placeholder)
         self.camera_button.hide()
         self.camera_indicator.hide()
+        # Los gestos siguen activados en la cuenta: al volver la cámara, con
+        # «Reintentar», la tarjeta vuelve a mostrar si ve la mano.
+        self._hand_present = False
         if self._gestures_active:
             self.gesture_status.set_status("Cámara no disponible", "error")
-        self._gestures_active = False
 
     # ---------- control con la mano
 

@@ -133,6 +133,17 @@ def test_sin_vista_previa_desactivar_los_gestos_apaga_la_camara():
     assert window.camera == "off"
 
 
+def test_reintentar_la_camara_con_los_gestos_activados_no_es_vista_previa():
+    controller, gestures, *_ = make_controller()
+    controller.apply(settings(gestures=True))
+    gestures.running = False  # la cámara no estuvo disponible y el hilo terminó
+    controller.start_camera()  # «Reintentar»
+    assert gestures.running is True
+    assert controller.camera_requested is False
+    controller.apply(settings(gestures=False))
+    assert gestures.running is False  # al desactivar los gestos, la cámara se cierra
+
+
 def test_apagar_la_camara_la_cierra():
     controller, gestures, _, window = make_controller()
     controller.start_camera()

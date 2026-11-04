@@ -163,6 +163,17 @@ def test_cp_03_02_informa_que_no_hay_camara(qapp):
     assert window.gesture_status.text() == "Cámara no disponible"
 
 
+def test_al_reintentar_la_camara_vuelve_a_buscar_la_mano(qapp):
+    window = MainWindow()
+    window.show_gestures_starting()
+    window.show_hand(True)
+    window.show_camera_unavailable()
+    window.show_camera_starting()  # el usuario pulsó «Reintentar»
+    assert window.gesture_status.text() == "Buscando tu mano"
+    window.show_hand(True)  # llegan imágenes y se ve la mano
+    assert window.gesture_status.text() == "Mano detectada"
+
+
 def test_cp_03_12_una_senal_atrasada_no_muestra_activos_los_gestos_desactivados(qapp):
     window = MainWindow()
     window.show_gestures_starting()

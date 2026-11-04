@@ -57,8 +57,14 @@ class PreferencesController:
             self._window.show_gestures_disabled()
 
     def start_camera(self):
-        """Enciende la cámara para ver la vista previa, sin activar los gestos."""
-        self._camera_requested = True
+        """Enciende la cámara para ver la vista previa, sin activar los gestos.
+
+        Con los gestos activados, en cambio, es un reintento después de que la cámara
+        no estuvo disponible: no se marca como vista previa, para que al desactivar
+        los gestos la cámara se cierre como siempre.
+        """
+        if not self._gestures.actions_enabled:
+            self._camera_requested = True
         if not self._gestures.running:
             self._window.show_camera_starting()
             self._gestures.start()

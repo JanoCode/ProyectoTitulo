@@ -12,7 +12,11 @@ from ergosense.actions.action import Action
 from ergosense.gestures.classifier import Gesture
 from ergosense.gestures.hand import Hand
 from ergosense.gestures.pipeline import GesturePipeline, Step
-from ergosense.gestures.worker import MAX_MISSED_FRAMES, GestureWorker
+from ergosense.gestures.worker import (
+    MAX_MISSED_FRAMES,
+    MISSED_FRAME_WAIT,
+    GestureWorker,
+)
 
 SCREEN = (0, 0, 1920, 1080)
 FRAME = np.zeros((480, 640, 3), dtype=np.uint8)
@@ -150,7 +154,8 @@ def test_al_terminar_entrega_al_ejecutor_las_acciones_de_cierre():
     assert executor.submitted == [Action.LEFT_UP]
 
 
-def test_si_la_camara_deja_de_entregar_imagenes_avisa_y_termina():
+def test_si_la_camara_deja_de_entregar_imagenes_avisa_y_termina(monkeypatch):
+    monkeypatch.setattr("ergosense.gestures.worker.MISSED_FRAME_WAIT", 0)
     camera = FakeCamera(frames=0)
     worker, *_ = make_worker(camera=camera)
     camera.on_empty = lambda: None  # la cámara "se desconectó": nadie pide detener
@@ -159,6 +164,33 @@ def test_si_la_camara_deja_de_entregar_imagenes_avisa_y_termina():
     worker.run()  # termina solo después de MAX_MISSED_FRAMES cuadros vacíos
     assert warnings == [True]
     assert MAX_MISSED_FRAMES > 1
+
+
+def test_una_falla_breve_de_la_camara_no_apaga_los_gestos():
+    class StumblingCamera(FakeCamera):
+        """Cámara falsa que falla unas veces seguidas y después se recupera."""
+
+        def __init__(self):
+            super().__init__(frames=0)
+            self._script = [None] * 5 + [FRAME]
+
+        def read(self):
+            if self._script:
+                return self._script.pop(0)
+            self.on_empty()
+            return None
+
+    camera = StumblingCamera()
+    worker, *_ = make_worker(camera=camera)
+    warnings, frames = [], []
+    worker.camera_unavailable.connect(lambda: warnings.append(True))
+    worker.frame_ready.connect(lambda image, points: frames.append(image))
+    started = time.monotonic()
+    worker.run()
+    assert warnings == []
+    assert len(frames) == 1
+    # Entre las fallas se espera un poco, en vez de darla por perdida al instante.
+    assert time.monotonic() - started >= 5 * MISSED_FRAME_WAIT * 0.9
 
 
 class EndlessCamera(FakeCamera):

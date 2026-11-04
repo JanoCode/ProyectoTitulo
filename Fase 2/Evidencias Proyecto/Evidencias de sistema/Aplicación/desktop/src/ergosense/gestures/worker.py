@@ -14,8 +14,11 @@ from PySide6.QtCore import QObject, Signal
 from PySide6.QtGui import QImage
 
 # Si la cámara deja de entregar imágenes este número de veces seguidas, por
-# ejemplo porque se desconectó, se considera no disponible.
+# ejemplo porque se desconectó, se considera no disponible. Entre un intento y el
+# siguiente se espera un poco: así se tolera una falla de unos 3 segundos, como un
+# tropiezo del USB, en vez de darla por perdida en un instante.
 MAX_MISSED_FRAMES = 30
+MISSED_FRAME_WAIT = 0.1  # segundos
 
 
 def _to_qimage(frame):
@@ -110,6 +113,8 @@ class GestureWorker(QObject):
                     if missed >= MAX_MISSED_FRAMES:
                         self.camera_unavailable.emit()
                         break
+                    # wait() y no sleep(): si se pide detener, termina de inmediato.
+                    self._stop_requested.wait(MISSED_FRAME_WAIT)
                     continue
                 missed = 0
 
