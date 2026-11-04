@@ -1,3 +1,4 @@
+import json
 import threading
 import time
 from unittest.mock import Mock
@@ -6,6 +7,7 @@ import pytest
 from PySide6.QtWidgets import QApplication
 
 from ergosense.voice.controller import VoiceController
+from ergosense.voice.recognizer import VoiceModelMissing
 from ergosense.voice.worker import VoiceWorker
 
 
@@ -22,7 +24,7 @@ def pump_until(qapp, condition):
     assert condition()
 
 
-def test_stop_does_not_wait_for_network_and_closes_audio(qapp):
+def test_stop_does_not_wait_and_closes_audio(qapp):
     release = threading.Event()
     worker = VoiceWorker()
     worker._thread = threading.Thread(target=lambda: release.wait(2))
@@ -81,67 +83,92 @@ def test_worker_delivery_runs_controller_on_ui_thread(qapp):
     executor.submit.assert_called_once()
 
 
-def test_audio_capture_recognition_and_stop(monkeypatch, qapp):
-    import speech_recognition as sr
+# --- Reconocimiento con Vosk, con un micrófono y un reconocedor falsos
 
-    worker = VoiceWorker()
-    captured = []
-    stream = Mock()
-    stream.__enter__ = Mock(return_value=stream)
-    stream.__exit__ = Mock(return_value=False)
-    monkeypatch.setattr("ergosense.voice.worker.sd.RawInputStream", lambda **kw: stream)
+
+class FakeRecognizer:
+    """Reconocedor falso: termina una frase en el segundo bloque de audio."""
+
+    def __init__(self, text):
+        self.text = text
+        self.blocks = 0
+
+    def AcceptWaveform(self, data):
+        self.blocks += 1
+        return self.blocks == 2
+
+    def Result(self):
+        return json.dumps({"text": self.text})
+
+
+class FakeStream:
+    """Micrófono falso: entrega dos bloques de audio y después silencio."""
+
+    def __init__(self, callback, **kwargs):
+        self.callback = callback
+        self.closed = False
+
+    def __enter__(self):
+        for _ in range(2):
+            self.callback(b"\0" * 3200, 1600, None, None)
+        return self
+
+    def __exit__(self, *args):
+        self.closed = True
+        return False
+
+
+def run_with(monkeypatch, recognizer):
+    """Ejecuta el hilo de voz hasta reconocer una frase, o 1,5 s como máximo."""
+    streams = []
+
+    def open_stream(**kwargs):
+        streams.append(FakeStream(**kwargs))
+        return streams[-1]
+
+    monkeypatch.setattr("ergosense.voice.worker.sd.RawInputStream", open_stream)
     monkeypatch.setattr(
-        sr.Recognizer, "listen", lambda *a, **kw: sr.AudioData(b"\0" * 32000, 16000, 2)
+        "ergosense.voice.worker.sd.query_devices",
+        lambda kind: {"name": "Mic de prueba"},
     )
-
-    def transcribe(self, audio, **kwargs):
-        captured.append(kwargs)
-        worker._stop.set()
-        return "clic izquierdo"
-
-    monkeypatch.setattr(sr.Recognizer, "recognize_google", transcribe)
-    commands = []
-    worker.recognized.connect(commands.append)
+    worker = VoiceWorker(recognizer_factory=lambda: recognizer)
+    texts, states, microphones = [], [], []
+    worker._result.connect(lambda _, text: (texts.append(text), worker._stop.set()))
+    worker._status.connect(lambda _, text: states.append(text))
+    worker._microphone.connect(lambda _, name: microphones.append(name))
+    timer = threading.Timer(1.5, worker._stop.set)  # por si no se reconoce nada
+    timer.start()
     worker._run()
-    assert captured[0]["language"] == "es-CL"
-    assert captured[0]["endpoint"].startswith("https://")
-    assert commands == []
-    stream.__exit__.assert_called_once()
+    timer.cancel()
+    return texts, states, microphones, streams
 
 
-@pytest.mark.parametrize("failure", ["unknown", "connection", "timeout"])
-def test_recognition_errors_leave_other_features_available(monkeypatch, qapp, failure):
-    import speech_recognition as sr
+def test_audio_capture_recognition_and_stop(monkeypatch, qapp):
+    texts, states, microphones, streams = run_with(
+        monkeypatch, FakeRecognizer("clic izquierdo")
+    )
+    assert texts == ["clic izquierdo"]
+    assert states == ["Activo · micrófono en uso"]
+    assert microphones == ["Mic de prueba"]
+    assert streams[0].closed  # el micrófono se cierra al terminar
 
-    from ergosense.voice.worker import _AudioStopped
 
-    worker = VoiceWorker()
-    stream = Mock()
-    stream.__enter__ = Mock(return_value=stream)
-    stream.__exit__ = Mock(return_value=False)
-    monkeypatch.setattr("ergosense.voice.worker.sd.RawInputStream", lambda **kw: stream)
-    calls = []
+def test_silence_or_unknown_speech_is_not_reported(monkeypatch, qapp):
+    texts, *_ = run_with(monkeypatch, FakeRecognizer(""))
+    assert texts == []
 
-    def listen(*args, **kwargs):
-        if calls:
-            raise _AudioStopped
-        calls.append(True)
-        return sr.AudioData(b"\0" * 32000, 16000, 2)
 
-    def transcribe(*args, **kwargs):
-        if failure == "unknown":
-            raise sr.UnknownValueError
-        if failure == "connection":
-            raise sr.RequestError("Connection unavailable")
-        raise TimeoutError
+def test_missing_model_reports_error_without_opening_the_microphone(monkeypatch, qapp):
+    def missing():
+        raise VoiceModelMissing("sin modelo")
 
-    monkeypatch.setattr(sr.Recognizer, "listen", listen)
-    monkeypatch.setattr(sr.Recognizer, "recognize_google", transcribe)
-    commands, states = [], []
-    worker.recognized.connect(commands.append)
-    worker.status_changed.connect(states.append)
+    opened = []
+    monkeypatch.setattr(
+        "ergosense.voice.worker.sd.RawInputStream", lambda **kw: opened.append(kw)
+    )
+    worker = VoiceWorker(recognizer_factory=missing)
+    states = []
+    worker._status.connect(lambda _, text: states.append(text))
     worker._run()
-    assert commands == []
-    if failure != "unknown":
-        assert "Sin conexión" in states[-1]
-    stream.__exit__.assert_called_once()
+    assert states == ["Falta el modelo de voz"]
+    assert opened == []

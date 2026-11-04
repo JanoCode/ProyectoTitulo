@@ -6,6 +6,8 @@ hardware. Los métodos show_* los llaman el controlador, las preferencias y los 
 de gestos y voz.
 """
 
+import re
+
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -55,13 +57,17 @@ VOICE_STATES = {
     "Desactivado": ("Desactivado", "off", False),
     "Iniciando micrófono...": ("Iniciando el micrófono", "waiting", False),
     "Activo · micrófono en uso": ("Escuchando", "ok", True),
-    "Sin conexión al reconocimiento de voz · micrófono en uso": (
-        "Reconocimiento sin conexión",
-        "waiting",
-        True,
-    ),
     "Micrófono no disponible": ("Micrófono no disponible", "error", False),
+    "Falta el modelo de voz": ("Falta el modelo de voz", "error", False),
 }
+
+
+def _device_name(name):
+    """Quita el prefijo que agrega Windows: "Micrófono (2- H510" pasa a "H510"."""
+    cleaned = re.sub(
+        r"^(micr[oó]fono|microphone)\s*\((\d+-\s*)?", "", name, flags=re.IGNORECASE
+    )
+    return cleaned.rstrip(") ").strip() or name
 
 
 def _initials(name):
@@ -269,16 +275,20 @@ class MainWindow(QWidget):
             lambda checked: self.feature_requested.emit("voice_enabled", checked)
         )
         layout.addWidget(card)
-        # El reconocimiento actual usa un servicio externo; el usuario debe saberlo.
+        # Qué micrófono se está usando: ayuda si Windows tiene elegido otro.
+        self.microphone_label = label("", "small", wrap=True)
+        self.microphone_label.hide()
+        # El usuario debe saber qué pasa con su audio (RNF-17).
         voice_notice = InfoBox(
-            "Requiere internet. El audio se envía a Google para reconocer los comandos.",
+            "El audio se procesa en este equipo, sin internet, y no se guarda.",
             kind="note",
         )
-        voice_notice.layout().setContentsMargins(12, 10, 12, 10)
-        notice_row = QHBoxLayout()
-        notice_row.setContentsMargins(48, 0, 0, 0)
-        notice_row.addWidget(voice_notice)
-        layout.addLayout(notice_row)
+        notice = QVBoxLayout()
+        notice.setContentsMargins(48, 0, 0, 0)
+        notice.setSpacing(8)
+        notice.addWidget(self.microphone_label)
+        notice.addWidget(voice_notice)
+        layout.addLayout(notice)
         layout.addWidget(divider())
 
         activity = QHBoxLayout()
@@ -507,6 +517,7 @@ class MainWindow(QWidget):
         if not enabled:
             self.voice_status.set_status("Desactivado", "off")
             self.mic_indicator.hide()
+            self.microphone_label.hide()
 
     def show_voice_status(self, status):
         if not self._voice_enabled:
@@ -516,3 +527,10 @@ class MainWindow(QWidget):
         )
         self.voice_status.set_status(text, state)
         self.mic_indicator.setVisible(microphone_in_use)
+
+    def show_microphone(self, name):
+        """Muestra el micrófono que usa la voz, el predeterminado de Windows."""
+        if not self._voice_enabled or not name:
+            return
+        self.microphone_label.setText(f"Micrófono: {_device_name(name)}")
+        self.microphone_label.show()

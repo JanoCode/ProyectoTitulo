@@ -138,6 +138,7 @@ def main():
     # si el control por gestos está activado.
     voice = VoiceWorker()
     voice.status_changed.connect(window.show_voice_status)
+    voice.microphone_changed.connect(window.show_microphone)
     preferences = PreferencesController(
         gestures,
         inactivity,

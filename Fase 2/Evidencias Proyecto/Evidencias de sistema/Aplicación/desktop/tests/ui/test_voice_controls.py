@@ -45,3 +45,34 @@ def test_sin_microfono_lo_informa(qapp):
     assert window.voice_status.text() == "Micrófono no disponible"
     assert window.voice_status.state == "error"
     window.close()
+
+
+def test_muestra_el_microfono_que_se_esta_usando(qapp):
+    window = MainWindow()
+    window.set_voice_enabled(True)
+    # Así lo entrega Windows: con prefijo y, a veces, recortado.
+    window.show_microphone("Micrófono (2- H510-PRO Wireless")
+    assert window.microphone_label.text() == "Micrófono: H510-PRO Wireless"
+    assert not window.microphone_label.isHidden()
+    window.set_voice_enabled(False)
+    assert window.microphone_label.isHidden()
+    window.close()
+
+
+def test_sin_modelo_de_voz_lo_informa(qapp):
+    window = MainWindow()
+    window.set_voice_enabled(True)
+    window.show_voice_status("Falta el modelo de voz")
+    assert window.voice_status.text() == "Falta el modelo de voz"
+    assert window.voice_status.state == "error"
+    window.close()
+
+
+def test_el_nombre_del_microfono_se_muestra_limpio(qapp):
+    window = MainWindow()
+    window.set_voice_enabled(True)
+    window.show_microphone("Microphone (Realtek(R) Audio)")
+    assert window.microphone_label.text() == "Micrófono: Realtek(R) Audio"
+    window.show_microphone("Logitech Webcam")
+    assert window.microphone_label.text() == "Micrófono: Logitech Webcam"
+    window.close()
