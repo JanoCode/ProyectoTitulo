@@ -3,16 +3,29 @@
 Lee la cámara, reconoce los gestos y mueve el cursor en un hilo propio, para no
 bloquear la ventana. El movimiento continuo del cursor lo aplica este hilo
 directamente, por rapidez (RNF-06); los clicks y el scroll pasan por el ejecutor
-único de acciones. La ventana se entera de lo que pasa mediante señales de Qt.
+único de acciones. La ventana se entera de lo que pasa mediante señales de Qt, y
+recibe cada cuadro para la vista previa. Las imágenes solo viajan en memoria:
+nunca se guardan ni se envían al servidor (RNF-17).
 """
 
 import threading
 
 from PySide6.QtCore import QObject, Signal
+from PySide6.QtGui import QImage
 
 # Si la cámara deja de entregar imágenes este número de veces seguidas, por
 # ejemplo porque se desconectó, se considera no disponible.
 MAX_MISSED_FRAMES = 30
+
+
+def _to_qimage(frame):
+    """Convierte un cuadro RGB de numpy en una QImage propia para la ventana."""
+    height, width = frame.shape[:2]
+    image = QImage(
+        frame.data, width, height, frame.strides[0], QImage.Format.Format_RGB888
+    )
+    # copy(): la imagen debe tener sus propios datos, porque el cuadro se reutiliza.
+    return image.copy()
 
 
 class GestureWorker(QObject):
@@ -21,6 +34,9 @@ class GestureWorker(QObject):
     # Las señales cruzan de hilo de forma segura: la ventana las recibe en el suyo.
     gesture_changed = Signal(str)  # nombre del gesto estable, para mostrarlo
     camera_unavailable = Signal()  # no hay cámara: se informa y lo demás sigue (PB-07)
+    hand_changed = Signal(bool)  # la mano apareció o salió de la imagen
+    # Cuadro para la vista previa y puntos de la mano entre 0 y 1 (o None sin mano).
+    frame_ready = Signal(QImage, object)
 
     def __init__(
         self,
@@ -43,6 +59,16 @@ class GestureWorker(QObject):
         self._on_activity = on_activity or (lambda: None)
         self._stop_requested = threading.Event()
         self._thread = None
+        # Con las acciones apagadas, la cámara solo sirve de vista previa.
+        self._actions_enabled = True
+
+    @property
+    def actions_enabled(self):
+        return self._actions_enabled
+
+    def set_actions_enabled(self, enabled):
+        """Decide si los gestos mueven el cursor y hacen clicks, o solo se muestran."""
+        self._actions_enabled = enabled
 
     def start(self):
         """Abre la cámara y empieza a reconocer gestos en un hilo propio."""
@@ -73,6 +99,8 @@ class GestureWorker(QObject):
             return
         tracker = self._tracker_factory()
         last_gesture = None
+        had_hand = None
+        acting = self._actions_enabled
         missed = 0
         try:
             while not self._stop_requested.is_set():
@@ -89,15 +117,31 @@ class GestureWorker(QObject):
                 height, width = frame.shape[:2]
                 step = self._pipeline.process(hand, (width, height))
 
-                if step.cursor is not None:
-                    self._mouse.move(step.cursor)
-                for action in step.actions:
-                    self._executor.submit(action)
-                if step.cursor is not None or step.actions:
-                    self._on_activity()
+                enabled = self._actions_enabled
+                if enabled:
+                    if step.cursor is not None:
+                        self._mouse.move(step.cursor)
+                    for action in step.actions:
+                        self._executor.submit(action)
+                    if step.cursor is not None or step.actions:
+                        self._on_activity()
+                elif acting:
+                    # Se acaban de apagar las acciones: se termina limpio, por ejemplo
+                    # soltando el botón si había un arrastre.
+                    for action in self._pipeline.finish():
+                        self._executor.submit(action)
+                acting = enabled
+
                 if step.gesture is not last_gesture:
                     self.gesture_changed.emit(step.gesture.value)
                     last_gesture = step.gesture
+                if (hand is not None) is not had_hand:
+                    had_hand = hand is not None
+                    self.hand_changed.emit(had_hand)
+                points = None
+                if hand is not None:
+                    points = [(x / width, y / height) for x, y in hand.image_points]
+                self.frame_ready.emit(_to_qimage(frame), points)
         finally:
             # Pase lo que pase, nunca queda el botón presionado ni la cámara abierta.
             for action in self._pipeline.finish():

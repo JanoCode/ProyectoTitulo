@@ -1,4 +1,4 @@
-"""Pruebas de la sección de configuración (Sprint 03: PB-36 y PB-37)."""
+"""Pruebas de la configuración del registro de pausas (PB-36 y PB-37)."""
 
 from ergosense.api_client import ApiClientError
 from ergosense.ui.settings_dialog import MAX_MINUTES, SettingsDialog
@@ -27,23 +27,17 @@ class FakeApiClient:
 def test_muestra_la_configuracion_actual(qapp):
     dialog = SettingsDialog(FakeApiClient())
     assert dialog.minutes_input.value() == 10
-    assert dialog.gestures_input.isChecked() is True
-    assert dialog.voice_input.isChecked() is True
 
 
-def test_cp_03_13_guarda_el_nuevo_tiempo_y_los_controles(qapp):
+def test_cp_03_13_guarda_el_nuevo_tiempo(qapp):
     client = FakeApiClient()
     dialog = SettingsDialog(client)
     dialog.minutes_input.setValue(15)
-    dialog.gestures_input.setChecked(False)
 
     dialog.submit()
 
-    assert client.sent == {
-        "inactivity_break_minutes": 15,
-        "gesture_enabled": False,
-        "voice_enabled": True,
-    }
+    # Los gestos y la voz se controlan con los interruptores de la ventana principal.
+    assert client.sent == {"inactivity_break_minutes": 15}
     assert dialog.result() == dialog.DialogCode.Accepted
 
 

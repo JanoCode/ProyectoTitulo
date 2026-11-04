@@ -10,7 +10,6 @@ from PySide6.QtWidgets import (
     QApplication,
     QDialog,
     QMessageBox,
-    QStyle,
     QSystemTrayIcon,
 )
 
@@ -29,16 +28,29 @@ from ergosense.monitoring.activity_period import ActivityPeriod
 from ergosense.monitoring.activity_recorder import ActivityRecorder
 from ergosense.monitoring.inactivity import InactivityMonitor
 from ergosense.monitoring.input_listener import InputListener
+from ergosense.ui import icons
 from ergosense.ui.auth_dialogs import LoginDialog
 from ergosense.ui.main_window import MainWindow
 from ergosense.ui.settings_dialog import SettingsDialog
+from ergosense.ui.theme import apply_theme
 from ergosense.voice.controller import VoiceController
 from ergosense.voice.worker import VoiceWorker
+
+# Mensaje breve que confirma cada cambio hecho desde los interruptores.
+FEATURE_MESSAGES = {
+    ("gesture_enabled", True): "Control con la mano activado.",
+    ("gesture_enabled", False): "Control con la mano desactivado.",
+    ("voice_enabled", True): "Control por voz activado.",
+    ("voice_enabled", False): "Control por voz desactivado.",
+}
 
 
 def main():
     """Inicia la aplicación y devuelve su código de salida al cerrar la ventana."""
     app = QApplication(sys.argv)
+    # Colores, tipografía y logo de ErgoSense en todas las ventanas (Sprint 04).
+    apply_theme(app)
+    app.setWindowIcon(icons.app_icon())
 
     # La URL puede cambiar en otro computador sin modificar el código.
     api_url = os.environ.get("ERGOSENSE_API_URL", "http://127.0.0.1:8000/api/v1")
@@ -71,13 +83,13 @@ def main():
     )
 
     # Ícono de la bandeja: sin él, Windows no muestra las notificaciones.
-    icon = app.style().standardIcon(QStyle.StandardPixmap.SP_ComputerIcon)
-    tray = QSystemTrayIcon(icon)
+    tray = QSystemTrayIcon(icons.app_icon())
     tray.setToolTip("ErgoSense")
     tray.show()
 
     window = MainWindow(tray)
     window.show_user(api_client.user["name"], api_client.user["email"])
+    window.show_connection(True)
 
     remote_session = RemoteUsageSession(api_client)
     try:
@@ -120,34 +132,68 @@ def main():
     # Las señales llegan desde el hilo de gestos; Qt las entrega en el de la ventana.
     gestures.gesture_changed.connect(window.show_gesture)
     gestures.camera_unavailable.connect(window.show_camera_unavailable)
+    gestures.hand_changed.connect(window.show_hand)
+    gestures.frame_ready.connect(window.show_frame)
     # Se respeta la preferencia guardada en la cuenta (PB-36): la cámara solo se abre
     # si el control por gestos está activado.
     voice = VoiceWorker()
     voice.status_changed.connect(window.show_voice_status)
     preferences = PreferencesController(
-        gestures, inactivity, window, inactivity_override=inactivity_override, voice=voice
+        gestures,
+        inactivity,
+        window,
+        inactivity_override=inactivity_override,
+        voice=voice,
     )
     preferences.apply(settings)
 
-    def update_features(changes):
+    def update_features(changes, message=None):
+        """Guarda un cambio de gestos o voz y lo aplica; devuelve True si resultó."""
         try:
             updated = api_client.update_settings(changes)
-            preferences.apply(updated)
         except ApiClientError as error:
-            QMessageBox.warning(window, "Configuración", str(error))
+            if error.status_code is None:
+                window.show_connection(False)  # no hubo respuesta del servidor
+            # Se vuelve a mostrar lo que sigue guardado en la cuenta.
+            preferences.apply(api_client.settings)
+            window.show_toast(str(error), "error")
+            return False
+        window.show_connection(True)
+        preferences.apply(updated)
+        if message:
+            window.show_toast(message)
+        return True
 
     voice_controller = VoiceController(
         lambda: api_client.settings.get("voice_enabled") and voice.running,
-        executor, update_features, register_activity,
+        executor,
+        update_features,
+        register_activity,
     )
     voice.recognized.connect(voice_controller.handle)
-    window.feature_requested.connect(lambda key, value: update_features({key: value}))
+    window.feature_requested.connect(
+        lambda key, value: update_features({key: value}, FEATURE_MESSAGES[key, value])
+    )
+
+    def set_camera(on):
+        """Enciende la cámara solo para la vista previa, o la apaga."""
+        if on:
+            preferences.start_camera()
+            return
+        gestures_were_on = api_client.settings.get("gesture_enabled")
+        preferences.stop_camera()
+        # Sin cámara no hay control con la mano: también se desactiva en la cuenta.
+        if gestures_were_on and update_features({"gesture_enabled": False}):
+            window.show_toast("La cámara y el control con la mano se han desactivado.")
+
+    window.camera_requested.connect(set_camera)
 
     def open_settings():
         """Abre la configuración y, si se guardó, la aplica sin reiniciar (PB-37)."""
         dialog = SettingsDialog(api_client, window)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             preferences.apply(api_client.settings)
+            window.show_toast("Preferencias guardadas.")
 
     window.settings_requested.connect(open_settings)
 

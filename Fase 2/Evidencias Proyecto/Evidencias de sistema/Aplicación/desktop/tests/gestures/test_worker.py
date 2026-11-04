@@ -183,3 +183,61 @@ def test_running_indica_si_el_hilo_esta_funcionando():
     assert worker.running is True
     worker.stop()
     assert worker.running is False
+
+
+# --- Vista previa (Sprint 04): la cámara puede estar encendida sin ejecutar acciones
+
+
+def test_con_las_acciones_apagadas_no_mueve_el_mouse_ni_cuenta_actividad():
+    worker, _, _, mouse, executor, activity = make_worker()
+    worker.set_actions_enabled(False)
+    worker.run()
+    assert mouse.moves == []
+    assert executor.submitted == []
+    assert activity == []
+
+
+def test_entrega_cada_cuadro_y_los_puntos_de_la_mano_para_la_vista_previa():
+    worker, *_ = make_worker(camera=FakeCamera(frames=3))
+    frames = []
+    worker.frame_ready.connect(lambda image, points: frames.append((image, points)))
+    worker.run()
+    assert len(frames) == 3
+    image, points = frames[0]
+    assert (image.width(), image.height()) == (640, 480)
+    assert points[0] == (0.5, 0.5)  # (320, 240) en una imagen de 640 × 480
+
+
+def test_avisa_solo_cuando_la_mano_aparece_o_desaparece():
+    worker, *_ = make_worker()
+    changes = []
+    worker.hand_changed.connect(changes.append)
+    worker.run()
+    assert changes == [True]
+
+
+def test_al_apagar_las_acciones_durante_un_arrastre_se_suelta_el_boton():
+    class DraggingPipeline:
+        """Tubería falsa que siempre está en medio de un arrastre."""
+
+        def process(self, hand, frame_size):
+            return Step(gesture=Gesture.THUMB_IN)
+
+        def finish(self):
+            return (Action.LEFT_UP,)
+
+    camera = FakeCamera(frames=3)
+    worker, _, _, _, executor, _ = make_worker(
+        camera=camera, pipeline=DraggingPipeline()
+    )
+    original_read = camera.read
+
+    def read_and_disable():
+        frame = original_read()
+        worker.set_actions_enabled(False)  # se apagan los gestos en pleno arrastre
+        return frame
+
+    camera.read = read_and_disable
+    worker.run()
+    # Al apagarse las acciones se suelta el botón, y al cerrar se termina limpio.
+    assert executor.submitted[0] == Action.LEFT_UP
