@@ -59,6 +59,15 @@ VOICE_STATES = {
     "Activo · micrófono en uso": ("Escuchando", "ok", True),
     "Micrófono no disponible": ("Micrófono no disponible", "error", False),
     "Falta el modelo de voz": ("Falta el modelo de voz", "error", False),
+    "No se pudo descargar": ("No se pudo descargar", "error", False),
+}
+# La primera vez se descarga el modelo: "Descargando voz · 45 %".
+VOICE_DOWNLOADING = "Descargando voz"
+# Texto de ayuda bajo la tarjeta, para los estados que lo necesitan.
+VOICE_DETAILS = {
+    VOICE_DOWNLOADING: "Solo la primera vez: se descargan unos 40 MB. Después, la voz "
+    "funciona sin internet.",
+    "No se pudo descargar": "Revisa tu conexión a internet y vuelve a activar la voz.",
 }
 
 
@@ -275,7 +284,8 @@ class MainWindow(QWidget):
             lambda checked: self.feature_requested.emit("voice_enabled", checked)
         )
         layout.addWidget(card)
-        # Qué micrófono se está usando: ayuda si Windows tiene elegido otro.
+        # Qué micrófono se está usando, que ayuda si Windows tiene elegido otro, o
+        # el avance de la descarga del modelo la primera vez.
         self.microphone_label = label("", "small", wrap=True)
         self.microphone_label.hide()
         # El usuario debe saber qué pasa con su audio (RNF-17).
@@ -532,6 +542,14 @@ class MainWindow(QWidget):
         )
         self.voice_status.set_status(text, state)
         self.mic_indicator.setVisible(microphone_in_use)
+        downloading = status.startswith(VOICE_DOWNLOADING)
+        detail = VOICE_DETAILS.get(VOICE_DOWNLOADING if downloading else status)
+        if detail:
+            self.microphone_label.setText(detail)
+            self.microphone_label.show()
+        elif not microphone_in_use:
+            # El nombre del micrófono solo se muestra mientras se escucha.
+            self.microphone_label.hide()
 
     def show_microphone(self, name):
         """Muestra el micrófono que usa la voz, el predeterminado de Windows."""

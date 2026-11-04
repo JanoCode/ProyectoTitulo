@@ -68,6 +68,33 @@ def test_sin_modelo_de_voz_lo_informa(qapp):
     window.close()
 
 
+def test_la_primera_vez_muestra_el_avance_de_la_descarga(qapp):
+    window = MainWindow()
+    window.set_voice_enabled(True)
+    window.show_voice_status("Descargando voz · 45 %")
+    assert window.voice_status.text() == "Descargando voz · 45 %"
+    assert window.voice_status.state == "waiting"
+    assert "Solo la primera vez" in window.microphone_label.text()
+    assert not window.microphone_label.isHidden()
+    # Al terminar, la ayuda de la descarga se reemplaza por el micrófono.
+    window.show_voice_status("Iniciando micrófono...")
+    assert window.microphone_label.isHidden()
+    window.show_microphone("Mic")
+    window.show_voice_status("Activo · micrófono en uso")
+    assert window.microphone_label.text() == "Micrófono: Mic"
+    assert not window.microphone_label.isHidden()
+    window.close()
+
+
+def test_si_la_descarga_falla_dice_que_hacer(qapp):
+    window = MainWindow()
+    window.set_voice_enabled(True)
+    window.show_voice_status("No se pudo descargar")
+    assert window.voice_status.state == "error"
+    assert "conexión a internet" in window.microphone_label.text()
+    window.close()
+
+
 def test_el_nombre_del_microfono_se_muestra_limpio(qapp):
     window = MainWindow()
     window.set_voice_enabled(True)

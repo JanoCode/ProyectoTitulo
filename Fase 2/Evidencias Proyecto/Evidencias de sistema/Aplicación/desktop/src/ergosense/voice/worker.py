@@ -2,7 +2,7 @@
 
 El reconocimiento usa Vosk y funciona sin internet: el audio del micrófono se
 procesa en este equipo, por bloques de 0,1 s, y nunca se guarda ni se envía a otro
-servicio (RNF-17).
+servicio (RNF-17). Solo la primera vez se usa internet, para descargar el modelo.
 """
 
 import json
@@ -12,13 +12,22 @@ import threading
 import sounddevice as sd
 from PySide6.QtCore import QObject, Signal, Slot
 
-from ergosense.voice.recognizer import SAMPLE_RATE, VoiceModelMissing, create_recognizer
+from ergosense.voice.recognizer import (
+    SAMPLE_RATE,
+    DownloadCancelled,
+    ModelDownloadError,
+    VoiceModelMissing,
+    create_recognizer,
+    download_model,
+)
 
 # Estados que se informan a la ventana.
 STARTING = "Iniciando micrófono..."
 LISTENING = "Activo · micrófono en uso"
 MICROPHONE_UNAVAILABLE = "Micrófono no disponible"
 MODEL_MISSING = "Falta el modelo de voz"
+DOWNLOADING = "Descargando voz"  # la primera vez; se agrega el avance: "· 45 %"
+DOWNLOAD_FAILED = "No se pudo descargar"
 DISABLED = "Desactivado"
 
 # 0,1 s de audio por bloque: lo bastante corto para responder rápido (RNF-07).
@@ -33,10 +42,13 @@ class VoiceWorker(QObject):
     _status = Signal(int, str)
     _microphone = Signal(int, str)
 
-    def __init__(self, recognizer_factory=create_recognizer):
+    def __init__(
+        self, recognizer_factory=create_recognizer, model_downloader=download_model
+    ):
         super().__init__()
-        # En las pruebas se entrega un reconocedor falso, sin cargar el modelo.
+        # En las pruebas se entregan un reconocedor y una descarga falsos.
         self._recognizer_factory = recognizer_factory
+        self._model_downloader = model_downloader
         self._stop = threading.Event()
         self._thread = None
         self._stream = None
@@ -97,11 +109,9 @@ class VoiceWorker(QObject):
     def _run(self, generation=None, stopped=None):
         generation = self._generation if generation is None else generation
         stopped = self._stop if stopped is None else stopped
-        try:
-            recognizer = self._recognizer_factory()
-        except VoiceModelMissing:
+        recognizer = self._create_recognizer(generation, stopped)
+        if recognizer is None:
             # Sin modelo no se abre el micrófono; el resto de ErgoSense sigue igual.
-            self._status.emit(generation, MODEL_MISSING)
             return
 
         chunks = queue.Queue(maxsize=50)
@@ -142,6 +152,41 @@ class VoiceWorker(QObject):
         finally:
             if generation == self._generation:
                 self._stream = None
+
+    def _create_recognizer(self, generation, stopped):
+        """Crea el reconocedor. La primera vez, antes descarga el modelo de voz."""
+        try:
+            return self._recognizer_factory()
+        except VoiceModelMissing:
+            pass
+        if not self._download_model(generation, stopped):
+            return None
+        self._status.emit(generation, STARTING)
+        try:
+            return self._recognizer_factory()
+        except VoiceModelMissing:
+            self._status.emit(generation, MODEL_MISSING)
+            return None
+
+    def _download_model(self, generation, stopped):
+        """Descarga el modelo e informa el avance. Devuelve True si quedó instalado."""
+        shown = None
+
+        def progress(percent):
+            nonlocal shown
+            if percent != shown:  # solo cuando cambia, para no saturar la ventana
+                shown = percent
+                self._status.emit(generation, f"{DOWNLOADING} · {percent} %")
+
+        self._status.emit(generation, f"{DOWNLOADING}...")
+        try:
+            self._model_downloader(progress=progress, cancelled=stopped.is_set)
+        except DownloadCancelled:
+            return False  # se apagó la voz: no hay nada que informar
+        except ModelDownloadError:
+            self._status.emit(generation, DOWNLOAD_FAILED)
+            return False
+        return True
 
 
 def _input_device_name():

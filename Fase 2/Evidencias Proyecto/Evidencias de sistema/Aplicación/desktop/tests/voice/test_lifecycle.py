@@ -7,7 +7,11 @@ import pytest
 from PySide6.QtWidgets import QApplication
 
 from ergosense.voice.controller import VoiceController
-from ergosense.voice.recognizer import VoiceModelMissing
+from ergosense.voice.recognizer import (
+    DownloadCancelled,
+    ModelDownloadError,
+    VoiceModelMissing,
+)
 from ergosense.voice.worker import VoiceWorker
 
 
@@ -158,17 +162,81 @@ def test_silence_or_unknown_speech_is_not_reported(monkeypatch, qapp):
     assert texts == []
 
 
-def test_missing_model_reports_error_without_opening_the_microphone(monkeypatch, qapp):
-    def missing():
-        raise VoiceModelMissing("sin modelo")
+def missing():
+    raise VoiceModelMissing("sin modelo")
 
+
+def run_without_model(monkeypatch, downloader, factory=missing):
+    """Ejecuta el hilo sin modelo instalado; devuelve los estados y si abrió el mic."""
     opened = []
     monkeypatch.setattr(
         "ergosense.voice.worker.sd.RawInputStream", lambda **kw: opened.append(kw)
     )
-    worker = VoiceWorker(recognizer_factory=missing)
+    worker = VoiceWorker(recognizer_factory=factory, model_downloader=downloader)
     states = []
     worker._status.connect(lambda _, text: states.append(text))
     worker._run()
-    assert states == ["Falta el modelo de voz"]
+    return states, opened
+
+
+def test_the_first_time_the_model_is_downloaded_and_then_listens(monkeypatch, qapp):
+    installed = []
+
+    def downloader(progress, cancelled):
+        for percent in (0, 50, 50, 100):  # el 50 repetido se informa una sola vez
+            progress(percent)
+        installed.append(True)
+
+    def factory():
+        if not installed:
+            raise VoiceModelMissing("sin modelo")
+        return FakeRecognizer("")
+
+    monkeypatch.setattr(
+        "ergosense.voice.worker.sd.query_devices", lambda kind: {"name": "Mic"}
+    )
+    worker = VoiceWorker(recognizer_factory=factory, model_downloader=downloader)
+    states = []
+    worker._status.connect(lambda _, text: states.append(text))
+    streams = []
+    monkeypatch.setattr(
+        "ergosense.voice.worker.sd.RawInputStream",
+        lambda **kw: streams.append(FakeStream(**kw)) or streams[-1],
+    )
+    timer = threading.Timer(0.5, worker._stop.set)
+    timer.start()
+    worker._run()
+    timer.cancel()
+    assert states == [
+        "Descargando voz...",
+        "Descargando voz · 0 %",
+        "Descargando voz · 50 %",
+        "Descargando voz · 100 %",
+        "Iniciando micrófono...",
+        "Activo · micrófono en uso",
+    ]
+    assert len(streams) == 1  # después de descargar, se abre el micrófono
+
+
+def test_without_internet_reports_it_without_opening_the_microphone(monkeypatch, qapp):
+    def offline(progress, cancelled):
+        raise ModelDownloadError("sin conexión")
+
+    states, opened = run_without_model(monkeypatch, offline)
+    assert states == ["Descargando voz...", "No se pudo descargar"]
+    assert opened == []
+
+
+def test_turning_voice_off_during_the_download_reports_nothing(monkeypatch, qapp):
+    def cancelled_download(progress, cancelled):
+        raise DownloadCancelled
+
+    states, opened = run_without_model(monkeypatch, cancelled_download)
+    assert states == ["Descargando voz..."]
+    assert opened == []
+
+
+def test_model_still_missing_after_download_is_reported(monkeypatch, qapp):
+    states, opened = run_without_model(monkeypatch, lambda progress, cancelled: None)
+    assert states[-1] == "Falta el modelo de voz"
     assert opened == []

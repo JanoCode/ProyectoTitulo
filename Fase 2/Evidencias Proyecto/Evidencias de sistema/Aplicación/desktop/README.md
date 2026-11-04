@@ -42,15 +42,7 @@ El proyecto está dentro de OneDrive. Por eso, el entorno virtual se crea **fuer
    uv sync
    ```
 
-3. Descarga el modelo de voz en español, una sola vez (unos 40 MB):
-
-   ```powershell
-   uv run python scripts/download_voice_model.py
-   ```
-
-   Queda en `%LOCALAPPDATA%\ErgoSense\models`, fuera de OneDrive y del repositorio. Si no está, la tarjeta de voz muestra *Falta el modelo de voz* y lo demás funciona igual.
-
-4. En VS Code, ejecuta **Python: Select Interpreter** y elige `C:\venvs\ergosense-desktop\Scripts\python.exe`.
+3. En VS Code, ejecuta **Python: Select Interpreter** y elige `C:\venvs\ergosense-desktop\Scripts\python.exe`.
 
 El modelo de detección de la mano (`src/ergosense/gestures/models/hand_landmarker.task`, de MediaPipe, licencia Apache 2.0) viene incluido en el repositorio.
 
@@ -109,6 +101,10 @@ Los umbrales de cada gesto están en `src/ergosense/gestures/classifier.py` y se
 ## Control por voz
 
 El reconocimiento usa [Vosk](https://alphacephei.com/vosk/) con el modelo `vosk-model-small-es-0.42`. Funciona **sin internet**: el audio se procesa en este equipo y no se guarda (RNF-17).
+
+**El modelo se descarga solo** la primera vez que se activa la voz: son unos 40 MB, y la tarjeta de voz muestra el avance. Es lo único que usa internet, y no envía nada del usuario. Antes de instalarlo, ErgoSense comprueba la huella SHA-256 del archivo: si no coincide, el archivo está dañado o alterado y no se instala. El modelo queda en `%LOCALAPPDATA%\ErgoSense\models`, fuera de OneDrive y del repositorio, y no se vuelve a descargar. Si no hay conexión, la tarjeta muestra *No se pudo descargar*; basta volver a activar la voz para reintentar. Lo demás de ErgoSense funciona igual.
+
+Para dejarlo listo antes, por ejemplo en un equipo que después estará sin internet, ejecuta `uv run python scripts/download_voice_model.py`.
 
 Los comandos son `clic izquierdo`, `clic derecho`, `subir`, `bajar`, `activar gestos`, `desactivar gestos`, `activar voz`, `desactivar voz`, `activar gestos y voz` y `desactivar gestos y voz`. Subir y bajar desplazan la rueda un paso, y los clicks actúan en la posición actual del cursor. Las acciones de voz y de gestos pasan por el mismo ejecutor, de a una y en orden.
 
@@ -174,7 +170,7 @@ Los casos que requieren interacción real se prueban de forma manual con los scr
 | `demo_control.py` | CP-03-05 a CP-03-10: control completo. Los clicks son reales; se sale con Esc. |
 | `calibrate_gestures.py` | Calibración de los umbrales de los gestos. |
 | `measure_gestures.py` | RNF-05, RNF-06 y RNF-08: cuadros por segundo, tiempo entre el gesto y el click, y uso de CPU. |
-| `download_voice_model.py` | Descarga el modelo de voz. |
+| `download_voice_model.py` | Descarga el modelo de voz por adelantado (opcional: la app lo descarga sola). |
 
 Se ejecutan desde la carpeta `desktop`, por ejemplo `uv run python scripts/demo_control.py`.
 
