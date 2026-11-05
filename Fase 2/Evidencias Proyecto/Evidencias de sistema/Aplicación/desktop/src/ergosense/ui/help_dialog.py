@@ -27,6 +27,9 @@ GESTURES = [
     ("Dos dedos extendidos", "Desplazamiento vertical"),
     ("Mantener el pulgar adentro y mover", "Arrastrar"),
     ("Abrir el pulgar", "Soltar"),
+    # Sin acción predefinida: el usuario los asigna a sus macros (Sprint 05).
+    ("Puño", "Activar una macro"),
+    ("L (índice y pulgar)", "Activar una macro"),
 ]
 GESTURES_TAB, VOICE_TAB = 0, 1
 

@@ -1,8 +1,8 @@
 # ErgoSense – Aplicación de escritorio
 
-ErgoSense es una aplicación de escritorio para Windows que monitorea el tiempo de uso del computador, recomienda pausas y permite controlar el equipo mediante gestos de la mano y comandos de voz. En el Sprint 05 se agregarán las macros.
+ErgoSense es una aplicación de escritorio para Windows que monitorea el tiempo de uso del computador, recomienda pausas y permite controlar el equipo mediante gestos de la mano y comandos de voz. Desde el Sprint 05 también permite crear macros que se ejecutan con una frase o un gesto.
 
-## Estado actual: Sprint 04
+## Estado actual: Sprint 05
 
 | Sprint | Funcionalidad |
 |---|---|
@@ -10,6 +10,7 @@ ErgoSense es una aplicación de escritorio para Windows que monitorea el tiempo 
 | 02 | Cuentas, inicio de sesión, sesiones de uso y pausas por inactividad guardadas en el servidor (PB-32 a PB-35, PB-48 y PB-49). |
 | 03 | Control mediante gestos con la cámara web y configuración del usuario (PB-07 a PB-13, PB-36 y PB-37). |
 | 04 | Control por voz sin internet e interfaz de usuario (PB-14 a PB-20). |
+| 05 | Macros personalizadas, aplicaciones registradas, persistencia integrada y pérdida de conexión (PB-38 a PB-45 y PB-50). |
 
 **Privacidad:** la aplicación registra solo el momento de la última interacción, nunca qué tecla se presionó ni qué botón se usó (RNF-16). Las imágenes de la cámara y el audio del micrófono se procesan en este equipo: nunca se guardan en disco ni se envían a otro servicio (RNF-17).
 
@@ -92,7 +93,7 @@ Los gestos se hacen con la **palma de frente a la cámara**, partiendo de la man
 | Pulgar adentro | Desde la mano abierta, se dobla solo el pulgar hacia la palma | Click izquierdo; si se mantiene 0,4 s o más, arrastre. |
 | Índice abajo | Desde la mano abierta, se dobla solo el índice | Click derecho. |
 | Dos dedos | Índice y medio estirados, el resto doblado | Scroll: subir o bajar la mano. |
-| Puño y "L" | — | Reservados para activar macros en el Sprint 05. |
+| Puño y "L" | Todos los dedos doblados, o índice y pulgar en "L" | Sin acción predefinida: activan las macros que los usen. |
 
 El cursor sigue el centro de la palma, que no se mueve al doblar el pulgar o el índice, y se mueve solo dentro del monitor principal. Para evitar activaciones accidentales (PB-13), un gesto debe mantenerse unos 0,1 s para contar, cada click se ejecuta una sola vez y las poses que no corresponden a un gesto no hacen nada.
 
@@ -116,6 +117,30 @@ Para no ejecutar acciones con frases que no son comandos (RNF-03):
 En pruebas con audios generados por la voz en español de Windows, se reconocieron los 10 comandos y ninguna de 12 frases distintas se confundió con un comando.
 
 La voz usa el **micrófono predeterminado de Windows**; la tarjeta de voz muestra cuál es. Para usar otro, cámbialo en Configuración → Sistema → Sonido → Entrada. Al apagar la voz se cierra el micrófono; para volver a encenderla se usa el interruptor de la ventana.
+
+## Macros
+
+El botón **Macros** abre el listado de macros de la cuenta, con un interruptor para activar o desactivar cada una (PB-43), y las opciones para crearlas, editarlas y eliminarlas (PB-38). Cada macro tiene:
+
+- **Activadores** (PB-39): una o más frases de voz, o el puño o la "L". No pueden ser un comando de voz base, un gesto con acción predefinida ni el activador de otra macro (PB-44). La interfaz informa el motivo antes de guardar y la API lo vuelve a validar. Las frases se comparan en minúsculas, sin tildes y con espacios simples; deben usar palabras comunes del español, escritas con sus tildes, para que Vosk las reconozca.
+- **Acciones en orden** (PB-40): abrir una URL (`http` o `https`), abrir una aplicación registrada, presionar teclas (por ejemplo `ctrl+shift+t`), escribir un texto de hasta 500 caracteres o hacer click (izquierdo, derecho o doble). Las flechas cambian el orden.
+
+Al reconocer un activador de una macro activada, con la voz o los gestos activados según corresponda, sus acciones pasan en orden por el mismo ejecutor de los gestos y la voz, una sola vez por activación (PB-42). Primero se resuelven los comandos y gestos predefinidos.
+
+**Aplicaciones** (PB-41): como la ruta de un programa cambia en cada equipo, las aplicaciones se registran por computador, con su nombre y la ruta del `.exe`. Una acción "abrir aplicación" guarda el nombre y, al ejecutarse, usa la aplicación registrada con ese nombre en este computador. Si no existe, ErgoSense pide registrarla. El computador se identifica por su nombre de equipo de Windows.
+
+Las macros y las aplicaciones se guardan en el servidor y se descargan al iniciar sesión, en cualquier computador (PB-45). El código está en `src/ergosense/macros/` y la ventana en `src/ergosense/ui/macros_dialog.py`.
+
+## Pérdida de conexión
+
+La aplicación necesita conexión para iniciar sesión. Después, si el servidor deja de responder (PB-50):
+
+- La barra inferior muestra *Sin conexión con el servidor* y aparece un aviso.
+- El monitoreo, los avisos, los gestos, la voz y las macros siguen funcionando con lo que ya estaba cargado. Activar o desactivar gestos o voz también funciona y se guarda al reconectar.
+- Las sesiones de uso, las pausas y los cambios de configuración esperan en una cola en memoria, en orden (`src/ergosense/api_client/pending.py`). Cada operación sale de la cola solo cuando el servidor responde.
+- Cada 30 segundos se consulta `GET /health`; al volver la conexión, se envía todo lo pendiente. Al cerrar la aplicación se hace un último intento. Lo que siga pendiente al cerrar sin conexión se pierde, como permite PB-50.
+
+Crear o editar macros y aplicaciones requiere conexión, porque el servidor valida y guarda cada cambio.
 
 ## Configuración
 
@@ -191,9 +216,10 @@ Se ejecutan desde la carpeta `desktop`, por ejemplo `uv run python scripts/demo_
 desktop/
 ├── src/ergosense/
 │   ├── actions/      # acciones del mouse y ejecutor único con cola (clicks y scroll)
-│   ├── api_client/   # solicitudes HTTP, tokens y almacén seguro
+│   ├── api_client/   # solicitudes HTTP, tokens, almacén seguro y cola de pendientes
 │   ├── app/          # arranque, controlador del monitoreo y aplicación de la configuración
 │   ├── gestures/     # cámara, detección de la mano, gestos, cursor e hilo de gestos
+│   ├── macros/       # catálogo, macros y aplicaciones, ejecución de acciones
 │   ├── monitoring/   # actividad, período de 60 minutos e inactividad
 │   ├── ui/           # ventanas, tema visual, íconos y componentes
 │   └── voice/        # comandos, lista de frases de Vosk, reconocedor e hilo de voz

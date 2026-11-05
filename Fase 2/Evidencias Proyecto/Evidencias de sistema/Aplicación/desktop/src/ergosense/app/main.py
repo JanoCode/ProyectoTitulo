@@ -17,6 +17,7 @@ from ergosense.actions.executor import ActionExecutor
 from ergosense.actions.mouse import MouseActions
 from ergosense.actions.screen import primary_screen
 from ergosense.api_client import ApiClient, ApiClientError
+from ergosense.api_client.pending import PendingQueue
 from ergosense.app.controller import MonitorController
 from ergosense.app.preferences import PreferencesController
 from ergosense.app.remote_session import RemoteUsageSession
@@ -24,12 +25,16 @@ from ergosense.gestures.camera import Camera
 from ergosense.gestures.hand_tracker import HandTracker
 from ergosense.gestures.pipeline import GesturePipeline
 from ergosense.gestures.worker import GestureWorker
+from ergosense.macros.controller import MacroController
+from ergosense.macros.library import MacroLibrary
+from ergosense.macros.runner import ActionRunner
 from ergosense.monitoring.activity_period import ActivityPeriod
 from ergosense.monitoring.activity_recorder import ActivityRecorder
 from ergosense.monitoring.inactivity import InactivityMonitor
 from ergosense.monitoring.input_listener import InputListener
 from ergosense.ui import icons
 from ergosense.ui.auth_dialogs import LoginDialog
+from ergosense.ui.macros_dialog import ApplicationsDialog, MacrosDialog
 from ergosense.ui.main_window import MainWindow
 from ergosense.ui.settings_dialog import SettingsDialog
 from ergosense.ui.theme import apply_theme
@@ -91,13 +96,24 @@ def main():
     window.show_user(api_client.user["name"], api_client.user["email"])
     window.show_connection(True)
 
-    remote_session = RemoteUsageSession(api_client)
-    try:
-        remote_session.start()
-    except ApiClientError as error:
-        QMessageBox.critical(None, "ErgoSense", str(error))
-        api_client.close()
-        return 1
+    # Pérdida de conexión (PB-50): los registros esperan en memoria y se envían al
+    # reconectar; mientras tanto, se consulta el servidor cada 30 segundos.
+    def connection_changed(online):
+        window.show_connection(online)
+        if online:
+            window.show_toast("Se recuperó la conexión con el servidor.")
+        else:
+            window.show_toast(
+                "Sin conexión con el servidor. ErgoSense sigue funcionando y guardará "
+                "los registros al reconectar.",
+                "error",
+            )
+
+    pending = PendingQueue(
+        api_client.check_connection, time.monotonic, connection_changed
+    )
+    remote_session = RemoteUsageSession(api_client, queue=pending)
+    remote_session.start()
 
     controller = MonitorController(
         period,
@@ -119,7 +135,11 @@ def main():
     # Control por gestos (PB-07 a PB-13): un hilo lee la cámara y mueve el cursor;
     # los clicks y el scroll pasan por el ejecutor único de acciones.
     mouse = MouseActions()
-    executor = ActionExecutor(mouse.perform)
+    # El mismo ejecutor atiende los clicks de gestos y voz y los pasos de las macros.
+    runner = ActionRunner(
+        mouse, on_error=lambda message: macro_controller.report_error(message)
+    )
+    executor = ActionExecutor(runner.perform)
     executor.start()
     gestures = GestureWorker(
         Camera(),
@@ -151,25 +171,72 @@ def main():
     def update_features(changes, message=None):
         """Guarda un cambio de gestos o voz y lo aplica; devuelve True si resultó."""
         try:
+            if not pending.online:
+                raise ApiClientError("Sin conexión.")  # no se espera otro intento
             updated = api_client.update_settings(changes)
         except ApiClientError as error:
-            if error.status_code is None:
-                window.show_connection(False)  # no hubo respuesta del servidor
-            # Se vuelve a mostrar lo que sigue guardado en la cuenta.
-            preferences.apply(api_client.settings)
-            window.show_toast(str(error), "error")
-            return False
-        window.show_connection(True)
+            if error.status_code is not None:
+                # El servidor lo rechazó: se vuelve a mostrar lo guardado en la cuenta.
+                preferences.apply(api_client.settings)
+                window.show_toast(str(error), "error")
+                return False
+            # Sin conexión (PB-50): el cambio se aplica y se guarda al reconectar.
+            pending.report_offline()
+            api_client.settings = {**api_client.settings, **changes}
+            pending.submit(lambda: api_client.update_settings(changes))
+            updated = api_client.settings
         preferences.apply(updated)
         if message:
             window.show_toast(message)
         return True
+
+    # Macros (PB-38 a PB-45): se cargan al iniciar y quedan en memoria.
+    library = MacroLibrary(api_client)
+    library.subscribe(lambda: voice.set_macro_phrases(library.voice_phrases()))
+    try:
+        library.load()
+    except ApiClientError as error:
+        window.show_toast(f"No se pudieron cargar las macros. {error}", "error")
+    macro_controller = MacroController(
+        library,
+        executor,
+        lambda: api_client.settings.get("voice_enabled") and voice.running,
+        lambda: (
+            api_client.settings.get("gesture_enabled")
+            and gestures.running
+            and gestures.actions_enabled
+        ),
+        register_activity,
+    )
+    gestures.gesture_changed.connect(macro_controller.handle_gesture)
+    macro_controller.failed.connect(lambda message: window.show_toast(message, "error"))
+    asking = False
+
+    def ask_to_register(name):
+        """Una acción OPEN_APP sin aplicación en este computador (PB-41)."""
+        nonlocal asking
+        if asking:
+            return
+        asking = True
+        answer = QMessageBox.question(
+            window,
+            "Registrar aplicación",
+            f"La macro necesita la aplicación «{name}», que no está registrada en "
+            "este computador. ¿Quieres registrarla ahora?",
+        )
+        if answer == QMessageBox.StandardButton.Yes:
+            ApplicationsDialog(library, name, window).exec()
+        asking = False
+
+    macro_controller.application_missing.connect(ask_to_register)
+    window.macros_requested.connect(lambda: MacrosDialog(library, window).exec())
 
     voice_controller = VoiceController(
         lambda: api_client.settings.get("voice_enabled") and voice.running,
         executor,
         update_features,
         register_activity,
+        run_macro=macro_controller.handle_voice,
     )
     voice.recognized.connect(voice_controller.handle)
     window.feature_requested.connect(
@@ -201,6 +268,7 @@ def main():
     # El timer corre en el hilo principal: es el único que actualiza la ventana.
     timer = QTimer()
     timer.timeout.connect(controller.tick)
+    timer.timeout.connect(pending.poll)
     timer.start(1000)  # Actualiza cada 1000 ms
 
     controller.start()
@@ -222,6 +290,8 @@ def main():
         listener.stop()
         try:
             controller.finish()
+            # Último intento de enviar los registros pendientes (arquitectura, 5.6).
+            pending.retry_now()
             if logout:
                 api_client.logout()
         except ApiClientError as error:

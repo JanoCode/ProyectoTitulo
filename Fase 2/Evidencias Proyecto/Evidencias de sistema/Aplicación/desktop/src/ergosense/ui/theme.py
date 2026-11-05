@@ -145,14 +145,23 @@ QToolButton#userButton:hover {{
 QToolButton#userButton::menu-indicator {{ image: none; width: 0; }}
 
 /* Campos */
-QLineEdit, QSpinBox {{
+QLineEdit, QSpinBox, QComboBox {{
     background: {SURFACE};
     border: 1px solid #B9C0C8;
     border-radius: 4px;
     padding: 7px 10px;
     selection-background-color: {PRIMARY};
 }}
-QLineEdit:focus, QSpinBox:focus {{ border: 2px solid {PRIMARY}; padding: 6px 9px; }}
+QLineEdit:focus, QSpinBox:focus, QComboBox:focus {{
+    border: 2px solid {PRIMARY};
+    padding: 6px 9px;
+}}
+QScrollArea, QWidget#scrollContent {{ background: transparent; }}
+QFrame#macroRow {{
+    background: {SURFACE};
+    border: 1px solid {BORDER};
+    border-radius: 6px;
+}}
 QLineEdit[invalid="true"] {{ border: 1px solid {DANGER}; }}
 QSpinBox::up-button, QSpinBox::down-button {{ width: 18px; border: none; }}
 QCheckBox {{ spacing: 8px; color: {MUTED}; }}

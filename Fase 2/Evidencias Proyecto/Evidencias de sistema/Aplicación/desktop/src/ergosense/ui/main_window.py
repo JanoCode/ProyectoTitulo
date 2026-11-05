@@ -89,6 +89,7 @@ class MainWindow(QWidget):
 
     logout_requested = Signal()
     settings_requested = Signal()  # el usuario quiere abrir la configuración
+    macros_requested = Signal()  # el usuario quiere administrar sus macros (PB-38)
     feature_requested = Signal(str, bool)  # activar o desactivar gestos o voz
     camera_requested = Signal(bool)  # encender o apagar la cámara
 
@@ -137,10 +138,13 @@ class MainWindow(QWidget):
         row.addSpacing(6)
         row.addWidget(label("ErgoSense", "brand"))
         row.addStretch()
+        self.macros_button = button("Macros", "ghost", "zap")
+        self.macros_button.clicked.connect(self.macros_requested.emit)
         self.help_button = button("Ayuda", "ghost", "help")
         self.help_button.clicked.connect(lambda: self.open_help(GESTURES_TAB))
         self.settings_button = button("Configuración", "ghost", "settings")
         self.settings_button.clicked.connect(self.settings_requested.emit)
+        row.addWidget(self.macros_button)
         row.addWidget(self.help_button)
         row.addWidget(self.settings_button)
         row.addSpacing(8)

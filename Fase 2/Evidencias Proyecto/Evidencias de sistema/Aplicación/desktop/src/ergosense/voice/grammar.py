@@ -36,13 +36,15 @@ semana
 UNKNOWN = "[unk]"
 
 
-def phrases():
-    """Los comandos y las palabras de relleno, sin repetir palabras de comandos."""
-    command_words = {word for phrase in COMMANDS for word in phrase.split()}
-    filler = sorted({word for word in FILLER_WORDS if word not in command_words})
-    return [*COMMANDS, *filler, UNKNOWN]
+def phrases(extra=()):
+    """Los comandos, las frases de las macros activadas (extra) y las palabras de
+    relleno, sin repetir palabras de comandos ni de macros (arquitectura, 5.4)."""
+    extra = [phrase for phrase in dict.fromkeys(extra) if phrase not in COMMANDS]
+    used_words = {word for phrase in [*COMMANDS, *extra] for word in phrase.split()}
+    filler = sorted({word for word in FILLER_WORDS if word not in used_words})
+    return [*COMMANDS, *extra, *filler, UNKNOWN]
 
 
-def grammar_json():
+def grammar_json(extra=()):
     """La lista en el formato que recibe Vosk."""
-    return json.dumps(phrases(), ensure_ascii=False)
+    return json.dumps(phrases(extra), ensure_ascii=False)

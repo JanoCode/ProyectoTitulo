@@ -12,6 +12,7 @@ import threading
 import sounddevice as sd
 from PySide6.QtCore import QObject, Signal, Slot
 
+from ergosense.voice.grammar import grammar_json
 from ergosense.voice.recognizer import (
     SAMPLE_RATE,
     DownloadCancelled,
@@ -49,6 +50,9 @@ class VoiceWorker(QObject):
         # En las pruebas se entregan un reconocedor y una descarga falsos.
         self._recognizer_factory = recognizer_factory
         self._model_downloader = model_downloader
+        # Frases de las macros activadas. Se reemplaza la tupla completa, y el hilo
+        # de audio reconstruye la gramática cuando ve una nueva (arquitectura, 5.4).
+        self._macro_phrases = ()
         self._stop = threading.Event()
         self._thread = None
         self._stream = None
@@ -73,6 +77,10 @@ class VoiceWorker(QObject):
     def _deliver_microphone(self, generation, name):
         if generation == self._generation and not self._stop.is_set():
             self.microphone_changed.emit(name)
+
+    def set_macro_phrases(self, phrases):
+        """Cada vez que se crea, edita, activa o desactiva una macro (PB-42)."""
+        self._macro_phrases = tuple(phrases)
 
     @property
     def running(self):
@@ -136,7 +144,12 @@ class VoiceWorker(QObject):
                 self._stream = stream
                 self._microphone.emit(generation, _input_device_name())
                 self._status.emit(generation, LISTENING)
+                applied = ()  # el reconocedor empieza con los comandos base
                 while not stopped.is_set():
+                    phrases = self._macro_phrases
+                    if phrases != applied:
+                        recognizer.SetGrammar(grammar_json(phrases))
+                        applied = phrases
                     try:
                         data = chunks.get(timeout=0.25)
                     except queue.Empty:
