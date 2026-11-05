@@ -149,6 +149,12 @@ def load_model():
         return _model
 
 
-def create_recognizer():
-    """Reconocedor limitado a los comandos y a las palabras de relleno (grammar.py)."""
-    return vosk.KaldiRecognizer(load_model(), SAMPLE_RATE, grammar_json())
+def create_recognizer(macro_phrases=()):
+    """Reconocedor limitado a los comandos, las frases de las macros activadas y las
+    palabras de relleno (grammar.py).
+
+    Vosk no permite cambiar la gramática de un reconocedor que ya recibió audio
+    (SetGrammar cierra la aplicación), por eso, cuando cambian las macros, se crea
+    uno nuevo: tarda alrededor de 1 ms, porque el modelo ya está cargado.
+    """
+    return vosk.KaldiRecognizer(load_model(), SAMPLE_RATE, grammar_json(macro_phrases))

@@ -12,7 +12,6 @@ import threading
 import sounddevice as sd
 from PySide6.QtCore import QObject, Signal, Slot
 
-from ergosense.voice.grammar import grammar_json
 from ergosense.voice.recognizer import (
     SAMPLE_RATE,
     DownloadCancelled,
@@ -117,7 +116,8 @@ class VoiceWorker(QObject):
     def _run(self, generation=None, stopped=None):
         generation = self._generation if generation is None else generation
         stopped = self._stop if stopped is None else stopped
-        recognizer = self._create_recognizer(generation, stopped)
+        applied = self._macro_phrases  # frases con las que se crea el reconocedor
+        recognizer = self._create_recognizer(generation, stopped, applied)
         if recognizer is None:
             # Sin modelo no se abre el micrófono; el resto de ErgoSense sigue igual.
             return
@@ -144,11 +144,11 @@ class VoiceWorker(QObject):
                 self._stream = stream
                 self._microphone.emit(generation, _input_device_name())
                 self._status.emit(generation, LISTENING)
-                applied = ()  # el reconocedor empieza con los comandos base
                 while not stopped.is_set():
                     phrases = self._macro_phrases
                     if phrases != applied:
-                        recognizer.SetGrammar(grammar_json(phrases))
+                        # Cambiaron las macros: reconocedor nuevo con la nueva lista.
+                        recognizer = self._recognizer_factory(phrases)
                         applied = phrases
                     try:
                         data = chunks.get(timeout=0.25)
@@ -166,17 +166,17 @@ class VoiceWorker(QObject):
             if generation == self._generation:
                 self._stream = None
 
-    def _create_recognizer(self, generation, stopped):
+    def _create_recognizer(self, generation, stopped, phrases):
         """Crea el reconocedor. La primera vez, antes descarga el modelo de voz."""
         try:
-            return self._recognizer_factory()
+            return self._recognizer_factory(phrases)
         except VoiceModelMissing:
             pass
         if not self._download_model(generation, stopped):
             return None
         self._status.emit(generation, STARTING)
         try:
-            return self._recognizer_factory()
+            return self._recognizer_factory(phrases)
         except VoiceModelMissing:
             self._status.emit(generation, MODEL_MISSING)
             return None

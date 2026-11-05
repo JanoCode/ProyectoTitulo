@@ -6,7 +6,7 @@ def test_missing_microphone_reports_error_without_crashing(monkeypatch):
         raise OSError("No input device")
 
     monkeypatch.setattr("ergosense.voice.worker.sd.RawInputStream", unavailable)
-    worker = VoiceWorker(recognizer_factory=lambda: object())
+    worker = VoiceWorker(recognizer_factory=lambda phrases: object())
     states = []
     worker.status_changed.connect(states.append)
     worker._run()

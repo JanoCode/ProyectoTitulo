@@ -135,7 +135,7 @@ def run_with(monkeypatch, recognizer):
         "ergosense.voice.worker.sd.query_devices",
         lambda kind: {"name": "Mic de prueba"},
     )
-    worker = VoiceWorker(recognizer_factory=lambda: recognizer)
+    worker = VoiceWorker(recognizer_factory=lambda phrases: recognizer)
     texts, states, microphones = [], [], []
     worker._result.connect(lambda _, text: (texts.append(text), worker._stop.set()))
     worker._status.connect(lambda _, text: states.append(text))
@@ -157,12 +157,46 @@ def test_audio_capture_recognition_and_stop(monkeypatch, qapp):
     assert streams[0].closed  # el micrófono se cierra al terminar
 
 
+def test_changing_macros_creates_a_new_recognizer_instead_of_changing_grammar(
+    monkeypatch, qapp
+):
+    # Vosk se cierra si se cambia la gramática de un reconocedor que ya recibió
+    # audio (SetGrammar); por eso cada cambio de macros crea uno nuevo.
+    created = []
+
+    class StrictRecognizer(FakeRecognizer):
+        def SetGrammar(self, grammar):
+            raise AssertionError("SetGrammar cierra la aplicación")
+
+    def factory(phrases):
+        created.append(phrases)
+        if len(created) == 1:
+            worker.set_macro_phrases(["abrir notas"])  # cambian mientras escucha
+        return StrictRecognizer("abrir notas" if phrases else "")
+
+    monkeypatch.setattr(
+        "ergosense.voice.worker.sd.query_devices", lambda kind: {"name": "Mic"}
+    )
+    monkeypatch.setattr(
+        "ergosense.voice.worker.sd.RawInputStream", lambda **kw: FakeStream(**kw)
+    )
+    worker = VoiceWorker(recognizer_factory=factory)
+    texts = []
+    worker._result.connect(lambda _, text: (texts.append(text), worker._stop.set()))
+    timer = threading.Timer(1.5, worker._stop.set)
+    timer.start()
+    worker._run()
+    timer.cancel()
+    assert created == [(), ("abrir notas",)]
+    assert texts == ["abrir notas"]
+
+
 def test_silence_or_unknown_speech_is_not_reported(monkeypatch, qapp):
     texts, *_ = run_with(monkeypatch, FakeRecognizer(""))
     assert texts == []
 
 
-def missing():
+def missing(phrases=()):
     raise VoiceModelMissing("sin modelo")
 
 
@@ -187,7 +221,7 @@ def test_the_first_time_the_model_is_downloaded_and_then_listens(monkeypatch, qa
             progress(percent)
         installed.append(True)
 
-    def factory():
+    def factory(phrases):
         if not installed:
             raise VoiceModelMissing("sin modelo")
         return FakeRecognizer("")
