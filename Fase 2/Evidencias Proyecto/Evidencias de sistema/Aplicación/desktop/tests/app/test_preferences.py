@@ -10,6 +10,10 @@ class FakeGestures:
         self.running = False
         self.starts = 0
         self.stops = 0
+        self.actions_enabled = None
+
+    def set_actions_enabled(self, enabled):
+        self.actions_enabled = enabled
 
     def start(self):
         self.running = True
@@ -32,6 +36,13 @@ class FakeWindow:
     def __init__(self):
         self.disabled_shown = False
         self.starting_shown = False
+        self.camera = "off"
+
+    def show_camera_starting(self):
+        self.camera = "starting"
+
+    def show_camera_off(self):
+        self.camera = "off"
 
     def show_gestures_starting(self):
         self.starting_shown = True
@@ -88,3 +99,55 @@ def test_la_variable_de_desarrollo_manda_sobre_la_configuracion():
     controller, _, inactivity, _ = make_controller(inactivity_override=10)
     controller.apply(settings(minutes=15))
     assert inactivity.limit_seconds == 10
+
+
+def test_cp_03_12_con_gestos_desactivados_no_se_ejecutan_acciones():
+    controller, gestures, *_ = make_controller()
+    controller.apply(settings(gestures=False))
+    assert gestures.actions_enabled is False
+
+
+def test_la_vista_previa_enciende_la_camara_sin_activar_los_gestos():
+    controller, gestures, _, window = make_controller()
+    controller.apply(settings(gestures=False))
+    controller.start_camera()
+    assert gestures.running is True
+    assert gestures.actions_enabled is False
+    assert window.camera == "starting"
+
+
+def test_desactivar_los_gestos_no_apaga_la_vista_previa():
+    controller, gestures, _, window = make_controller()
+    controller.start_camera()
+    controller.apply(settings(gestures=True))
+    controller.apply(settings(gestures=False))
+    assert gestures.running is True  # el usuario quiere seguir viendo la cámara
+    assert window.disabled_shown is True
+
+
+def test_sin_vista_previa_desactivar_los_gestos_apaga_la_camara():
+    controller, gestures, _, window = make_controller()
+    controller.apply(settings(gestures=True))
+    controller.apply(settings(gestures=False))
+    assert gestures.running is False
+    assert window.camera == "off"
+
+
+def test_reintentar_la_camara_con_los_gestos_activados_no_es_vista_previa():
+    controller, gestures, *_ = make_controller()
+    controller.apply(settings(gestures=True))
+    gestures.running = False  # la cámara no estuvo disponible y el hilo terminó
+    controller.start_camera()  # «Reintentar»
+    assert gestures.running is True
+    assert controller.camera_requested is False
+    controller.apply(settings(gestures=False))
+    assert gestures.running is False  # al desactivar los gestos, la cámara se cierra
+
+
+def test_apagar_la_camara_la_cierra():
+    controller, gestures, _, window = make_controller()
+    controller.start_camera()
+    controller.stop_camera()
+    assert gestures.running is False
+    assert controller.camera_requested is False
+    assert window.camera == "off"

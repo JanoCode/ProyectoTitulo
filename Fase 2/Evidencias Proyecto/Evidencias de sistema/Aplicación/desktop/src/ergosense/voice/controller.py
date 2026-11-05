@@ -7,18 +7,24 @@ from ergosense.voice.commands import resolve_command
 
 
 class VoiceController(QObject):
-    def __init__(self, enabled, executor, update_features, on_activity):
+    def __init__(self, enabled, executor, update_features, on_activity, run_macro=None):
         super().__init__()
         self._enabled = enabled
         self._executor = executor
         self._update_features = update_features
         self._on_activity = on_activity
+        # Si la frase no es un comando base, puede activar una macro (PB-42).
+        self._run_macro = run_macro or (lambda text: False)
 
     @Slot(str)
     def handle(self, text):
         if not self._enabled():
             return
         command = resolve_command(text)
+        if command is None:
+            # Primero los comandos base; después las macros (arquitectura, 5.5).
+            self._run_macro(text)
+            return
         if isinstance(command, Action):
             self._executor.submit(command)
             self._on_activity()

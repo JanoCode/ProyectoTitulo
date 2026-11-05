@@ -21,11 +21,16 @@ COMMANDS = MappingProxyType(
 )
 
 
-def resolve_command(text):
-    """Descarta frases parciales, palabras adicionales y expresiones similares."""
+def normalize(text):
+    """Forma para comparar frases: minúsculas, sin tildes y con espacios simples."""
     normalized = "".join(
         char
         for char in unicodedata.normalize("NFD", text.casefold())
         if unicodedata.category(char) != "Mn"
     )
-    return COMMANDS.get(" ".join(normalized.split()))
+    return " ".join(normalized.split())
+
+
+def resolve_command(text):
+    """Descarta frases parciales, palabras adicionales y expresiones similares."""
+    return COMMANDS.get(normalize(text))

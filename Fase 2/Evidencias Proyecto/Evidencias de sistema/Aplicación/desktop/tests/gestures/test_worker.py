@@ -12,7 +12,11 @@ from ergosense.actions.action import Action
 from ergosense.gestures.classifier import Gesture
 from ergosense.gestures.hand import Hand
 from ergosense.gestures.pipeline import GesturePipeline, Step
-from ergosense.gestures.worker import MAX_MISSED_FRAMES, GestureWorker
+from ergosense.gestures.worker import (
+    MAX_MISSED_FRAMES,
+    MISSED_FRAME_WAIT,
+    GestureWorker,
+)
 
 SCREEN = (0, 0, 1920, 1080)
 FRAME = np.zeros((480, 640, 3), dtype=np.uint8)
@@ -150,7 +154,8 @@ def test_al_terminar_entrega_al_ejecutor_las_acciones_de_cierre():
     assert executor.submitted == [Action.LEFT_UP]
 
 
-def test_si_la_camara_deja_de_entregar_imagenes_avisa_y_termina():
+def test_si_la_camara_deja_de_entregar_imagenes_avisa_y_termina(monkeypatch):
+    monkeypatch.setattr("ergosense.gestures.worker.MISSED_FRAME_WAIT", 0)
     camera = FakeCamera(frames=0)
     worker, *_ = make_worker(camera=camera)
     camera.on_empty = lambda: None  # la cámara "se desconectó": nadie pide detener
@@ -159,6 +164,33 @@ def test_si_la_camara_deja_de_entregar_imagenes_avisa_y_termina():
     worker.run()  # termina solo después de MAX_MISSED_FRAMES cuadros vacíos
     assert warnings == [True]
     assert MAX_MISSED_FRAMES > 1
+
+
+def test_una_falla_breve_de_la_camara_no_apaga_los_gestos():
+    class StumblingCamera(FakeCamera):
+        """Cámara falsa que falla unas veces seguidas y después se recupera."""
+
+        def __init__(self):
+            super().__init__(frames=0)
+            self._script = [None] * 5 + [FRAME]
+
+        def read(self):
+            if self._script:
+                return self._script.pop(0)
+            self.on_empty()
+            return None
+
+    camera = StumblingCamera()
+    worker, *_ = make_worker(camera=camera)
+    warnings, frames = [], []
+    worker.camera_unavailable.connect(lambda: warnings.append(True))
+    worker.frame_ready.connect(lambda image, points: frames.append(image))
+    started = time.monotonic()
+    worker.run()
+    assert warnings == []
+    assert len(frames) == 1
+    # Entre las fallas se espera un poco, en vez de darla por perdida al instante.
+    assert time.monotonic() - started >= 5 * MISSED_FRAME_WAIT * 0.9
 
 
 class EndlessCamera(FakeCamera):
@@ -183,3 +215,61 @@ def test_running_indica_si_el_hilo_esta_funcionando():
     assert worker.running is True
     worker.stop()
     assert worker.running is False
+
+
+# --- Vista previa (Sprint 04): la cámara puede estar encendida sin ejecutar acciones
+
+
+def test_con_las_acciones_apagadas_no_mueve_el_mouse_ni_cuenta_actividad():
+    worker, _, _, mouse, executor, activity = make_worker()
+    worker.set_actions_enabled(False)
+    worker.run()
+    assert mouse.moves == []
+    assert executor.submitted == []
+    assert activity == []
+
+
+def test_entrega_cada_cuadro_y_los_puntos_de_la_mano_para_la_vista_previa():
+    worker, *_ = make_worker(camera=FakeCamera(frames=3))
+    frames = []
+    worker.frame_ready.connect(lambda image, points: frames.append((image, points)))
+    worker.run()
+    assert len(frames) == 3
+    image, points = frames[0]
+    assert (image.width(), image.height()) == (640, 480)
+    assert points[0] == (0.5, 0.5)  # (320, 240) en una imagen de 640 × 480
+
+
+def test_avisa_solo_cuando_la_mano_aparece_o_desaparece():
+    worker, *_ = make_worker()
+    changes = []
+    worker.hand_changed.connect(changes.append)
+    worker.run()
+    assert changes == [True]
+
+
+def test_al_apagar_las_acciones_durante_un_arrastre_se_suelta_el_boton():
+    class DraggingPipeline:
+        """Tubería falsa que siempre está en medio de un arrastre."""
+
+        def process(self, hand, frame_size):
+            return Step(gesture=Gesture.THUMB_IN)
+
+        def finish(self):
+            return (Action.LEFT_UP,)
+
+    camera = FakeCamera(frames=3)
+    worker, _, _, _, executor, _ = make_worker(
+        camera=camera, pipeline=DraggingPipeline()
+    )
+    original_read = camera.read
+
+    def read_and_disable():
+        frame = original_read()
+        worker.set_actions_enabled(False)  # se apagan los gestos en pleno arrastre
+        return frame
+
+    camera.read = read_and_disable
+    worker.run()
+    # Al apagarse las acciones se suelta el botón, y al cerrar se termina limpio.
+    assert executor.submitted[0] == Action.LEFT_UP

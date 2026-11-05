@@ -14,7 +14,7 @@ dependencies = [
     "pynput>=1.8.2",
     "pyside6>=6.11.2",
     "sounddevice>=0.5,<1",
-    "speechrecognition>=3.14,<4",
+    "vosk>=0.3.45,<0.4",
 ]
 
 [project.scripts]
