@@ -342,3 +342,20 @@ def test_failed_macro_step_stops_the_batch_but_not_later_actions():
     executor.stop()
     assert keyboard.events == [("type", "Nueva acción")]
     assert len(errors) == 1
+
+
+def test_reload_failure_keeps_the_previous_complete_library():
+    from ergosense.api_client import ApiClientError
+
+    library, *_ = make()
+    previous = library.macros
+    library._api.list_macros = lambda: []
+
+    def disconnected(device):
+        raise ApiClientError("Sin conexión")
+
+    library._api.list_applications = disconnected
+    with pytest.raises(ApiClientError):
+        library.load()
+    assert library.macros is previous
+    assert library.find("VOICE", "abrir correo") is not None
