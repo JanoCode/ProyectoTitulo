@@ -30,6 +30,9 @@ class ActionExecutor:
         """Agrega una acción al final de la cola; no espera a que se ejecute."""
         self._queue.put(action)
 
+    def submit_batch(self, actions):
+        self._queue.put(tuple(actions))
+
     def stop(self):
         """Ejecuta lo que quedó en la cola y termina el hilo."""
         if self._thread is None:
@@ -45,4 +48,8 @@ class ActionExecutor:
             action = self._queue.get()
             if action is _STOP:
                 return
-            self._perform(action)
+            if isinstance(action, tuple):
+                for step in action:
+                    self._perform(step)
+            else:
+                self._perform(action)
