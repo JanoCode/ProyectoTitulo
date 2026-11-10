@@ -15,7 +15,7 @@ RETRY_SECONDS = 30
 
 
 class PendingQueue:
-    def __init__(self, check_connection, clock, on_connection_changed=None):
+    def __init__(self, check_connection, clock, on_connection_changed=None, on_rejected=None):
         # check_connection: consulta /health y devuelve True si el servidor responde.
         self._check_connection = check_connection
         self._clock = clock
@@ -23,6 +23,7 @@ class PendingQueue:
         self._operations = deque()
         self.online = True
         self._last_check = None
+        self._on_rejected = on_rejected or (lambda error: None)
 
     @property
     def pending(self):
@@ -45,11 +46,13 @@ class PendingQueue:
                     self.report_offline()
                     return
                 # El servidor la rechazó: repetirla daría el mismo resultado.
+                self._on_rejected(error)
             self._operations.popleft()
 
     def report_offline(self):
         """Cualquier módulo que no obtuvo respuesta del servidor lo informa aquí."""
-        self._last_check = self._clock()
+        if self.online or self._last_check is None:
+            self._last_check = self._clock()
         if self.online:
             self.online = False
             self._on_connection_changed(False)

@@ -6,4 +6,7 @@ __pycache__/
 .coverage
 htmlcov/
 .env
+.env.*
+!.env.example
+!.env.qa.example
 ~$*

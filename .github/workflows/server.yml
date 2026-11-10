@@ -1,0 +1,28 @@
+name: API
+on:
+  push:
+    paths:
+      - 'Fase 2/Evidencias Proyecto/Evidencias de sistema/Aplicación/server/**'
+      - '.github/workflows/server.yml'
+  pull_request:
+    paths:
+      - 'Fase 2/Evidencias Proyecto/Evidencias de sistema/Aplicación/server/**'
+      - '.github/workflows/server.yml'
+permissions:
+  contents: read
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: 'Fase 2/Evidencias Proyecto/Evidencias de sistema/Aplicación/server'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install uv==0.12.10
+      - run: uv sync --locked
+      - run: uv run ruff check
+      - run: uv run python -m pytest --cov=app --cov-report=term-missing

@@ -32,7 +32,10 @@ async def validation_error_handler(_request: Request, error: RequestValidationEr
         status_code=422,
         content={
             "detail": "Los datos enviados no son válidos.",
-            "errors": jsonable_encoder(error.errors()),
+            "errors": jsonable_encoder([
+                {key: item[key] for key in ("loc", "msg", "type")}
+                for item in error.errors()
+            ]),
         },
     )
 

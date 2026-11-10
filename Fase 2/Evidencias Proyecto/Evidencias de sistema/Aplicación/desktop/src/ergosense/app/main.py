@@ -110,7 +110,10 @@ def main():
             )
 
     pending = PendingQueue(
-        api_client.check_connection, time.monotonic, connection_changed
+        api_client.check_connection, time.monotonic, connection_changed,
+        on_rejected=lambda error: window.show_toast(
+            f"El servidor rechazó un registro pendiente: {error}", "error"
+        ),
     )
     remote_session = RemoteUsageSession(api_client, queue=pending)
     remote_session.start()

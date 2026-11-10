@@ -77,6 +77,11 @@ def end_usage_session(
         )
     open_break = get_open_break(database, session.id)
     if open_break is not None:
+        if aware_utc(end_time) < aware_utc(open_break.started_at):
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_CONTENT,
+                "El término no puede ser anterior al inicio de la pausa abierta.",
+            )
         open_break.ended_at = end_time
     session.ended_at = end_time
     database.commit()

@@ -135,3 +135,29 @@ def test_transient_server_failure_preserves_records(status):
     queue.poll()
     assert calls == ["registro"]
     assert queue.pending == 0
+
+
+def test_permanent_rejection_is_visible_and_does_not_block_later_records():
+    rejected, sent = [], []
+    queue = PendingQueue(lambda: True, Clock(), on_rejected=rejected.append)
+
+    def invalid():
+        raise ApiClientError("Datos rechazados", 422)
+
+    queue.submit(invalid)
+    queue.submit(lambda: sent.append(True))
+    assert len(rejected) == 1
+    assert rejected[0].status_code == 422
+    assert sent == [True]
+
+
+def test_more_offline_events_do_not_postpone_the_retry():
+    server, clock, _, queue, remote, _ = make()
+    server.online = False
+    remote.start()
+    for second in (10, 20, 29):
+        clock.now = second
+        queue.report_offline()
+    clock.now = 30
+    queue.poll()
+    assert server.health_checks == 1
