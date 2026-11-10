@@ -307,3 +307,19 @@ def test_si_no_puede_abrir_la_aplicacion_avisa_y_no_se_cae():
     )
     runner.perform(MacroStep("OPEN_APP", r"C:\no-existe.exe", "Notas"))
     assert errors == [r"La macro «Notas» no pudo abrir C:\no-existe.exe."]
+
+
+def test_modifier_is_released_when_the_next_press_fails():
+    from pynput.keyboard import Key
+
+    class BrokenKeyboard(FakeKeyboard):
+        def press(self, key):
+            if key == Key.shift:
+                raise OSError("Keyboard unavailable")
+            super().press(key)
+
+    keyboard = BrokenKeyboard()
+    runner = ActionRunner(FakeMouse(), keyboard)
+    with pytest.raises(OSError):
+        runner._press("ctrl+shift+t")
+    assert keyboard.events == [("press", Key.ctrl), ("release", Key.ctrl)]

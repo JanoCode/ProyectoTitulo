@@ -98,12 +98,19 @@ class ActionRunner:
         *modifiers, key = combination.lower().split("+")
         held = [KEYS[name] for name in modifiers]
         final = KEYS.get(key, key)
-        for modifier in held:
-            self._keyboard.press(modifier)
+        pressed = []
         try:
+            for modifier in held:
+                self._keyboard.press(modifier)
+                pressed.append(modifier)
             self._keyboard.press(final)
+            pressed.append(final)
             self._keyboard.release(final)
+            pressed.pop()
         finally:
             # Nunca queda una tecla presionada, aunque algo falle.
-            for modifier in reversed(held):
-                self._keyboard.release(modifier)
+            for key in reversed(pressed):
+                try:
+                    self._keyboard.release(key)
+                except OSError:
+                    pass
