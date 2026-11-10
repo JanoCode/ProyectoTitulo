@@ -15,14 +15,17 @@ _STOP = object()
 class ActionExecutor:
     """Ejecuta las acciones de a una, en orden de llegada, en un hilo propio."""
 
-    def __init__(self, perform):
+    def __init__(self, perform, on_error=None):
         # perform: función que ejecuta una acción, por ejemplo MouseActions.perform.
         self._perform = perform
         self._queue = queue.Queue()
         self._thread = None
+        self._on_error = on_error or (lambda error: None)
 
     def start(self):
         """Inicia el hilo que atiende la cola."""
+        if self._thread is not None and self._thread.is_alive():
+            return
         self._thread = threading.Thread(target=self._run, name="acciones", daemon=True)
         self._thread.start()
 
@@ -48,8 +51,12 @@ class ActionExecutor:
             action = self._queue.get()
             if action is _STOP:
                 return
-            if isinstance(action, tuple):
-                for step in action:
-                    self._perform(step)
-            else:
-                self._perform(action)
+            try:
+                if isinstance(action, tuple):
+                    for step in action:
+                        if self._perform(step) is False:
+                            break
+                else:
+                    self._perform(action)
+            except Exception as error:
+                self._on_error(error)
