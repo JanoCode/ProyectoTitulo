@@ -51,7 +51,8 @@ class PendingQueue:
 
     def report_offline(self):
         """Cualquier módulo que no obtuvo respuesta del servidor lo informa aquí."""
-        self._last_check = self._clock()
+        if self.online or self._last_check is None:
+            self._last_check = self._clock()
         if self.online:
             self.online = False
             self._on_connection_changed(False)
