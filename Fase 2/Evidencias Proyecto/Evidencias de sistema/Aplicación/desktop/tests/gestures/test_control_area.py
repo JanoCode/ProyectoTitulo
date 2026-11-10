@@ -11,7 +11,7 @@ from ergosense.gestures.pipeline import GesturePipeline
 @pytest.mark.parametrize("side", ["left", "right"])
 def test_small_side_area_maps_to_the_entire_screen(side):
     mapper = CursorMapper((0, 0, 1920, 1080), smoothing=1, dead_zone=0)
-    x1, y1, x2, y2 = control_area(side)
+    x1, y1, x2, y2 = control_area(side, (640,480))
     mapper.set_active_rect((x1, y1, x2, y2))
     assert mapper.update((640*x1, 480*y1), (640,480)) == (0,0)
     assert mapper.update((640*x2, 480*y2), (640,480)) == (1919,1079)
@@ -29,6 +29,25 @@ class Classifier:
 
     def classify(self, points):
         return self.gesture
+
+
+@pytest.mark.parametrize("side", ["left", "right"])
+@pytest.mark.parametrize("frame_size", [(640,480), (1280,720), (1920,1080)])
+def test_action_rectangle_has_a_physical_aspect_of_sixteen_to_nine(side, frame_size):
+    width, height = frame_size
+    left, top, right, bottom = control_area(side, frame_size)
+    assert (right-left)*width / ((bottom-top)*height) == pytest.approx(16/9)
+    assert 0 <= left < right <= 1
+    assert 0 <= top < bottom <= 1
+
+
+def test_pipeline_uses_the_same_rectangle_as_the_preview():
+    pipeline = GesturePipeline((0,0,1920,1080), lambda: 0, Classifier())
+    pipeline.set_control_side("right")
+    outside = pipeline.process(hand(480,120), (640,480))
+    assert outside.gesture is Gesture.NONE
+    assert outside.cursor is None
+    assert pipeline._bounds == control_area("right", (640,480))
 
 
 def test_leaving_area_cancels_click_and_requires_a_new_stable_gesture():

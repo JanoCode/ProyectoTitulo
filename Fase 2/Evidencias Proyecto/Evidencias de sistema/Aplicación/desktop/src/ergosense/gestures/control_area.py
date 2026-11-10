@@ -1,13 +1,18 @@
-AREAS = {
-    "right": (0.58, 0.18, 0.94, 0.82),
-    "left": (0.06, 0.18, 0.42, 0.82),
-}
+SCREEN_ASPECT = 16 / 9
+AREA_WIDTH = 0.36
 
 
-def control_area(side):
-    if side not in AREAS:
+def control_area(side, frame_size=(16, 9)):
+    if side not in ("left", "right"):
         raise ValueError("El lado debe ser left o right")
-    return AREAS[side]
+    width, height = frame_size
+    if width <= 0 or height <= 0:
+        raise ValueError("El video debe tener dimensiones positivas")
+    area_width = min(AREA_WIDTH, 0.8 * height * SCREEN_ASPECT / width)
+    area_height = area_width * width / (SCREEN_ASPECT * height)
+    left = 0.94 - area_width if side == "right" else 0.06
+    top = (1 - area_height) / 2
+    return left, top, left + area_width, top + area_height
 
 
 def contains(point, frame_size, bounds):

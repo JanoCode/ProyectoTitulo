@@ -47,6 +47,13 @@ class GesturePipeline:
 
     def process(self, hand, frame_size):
         """Procesa la mano de un cuadro (o None si no hay) y devuelve un Step."""
+        if self._control_side is not None:
+            bounds = control_area(self._control_side, frame_size)
+            if bounds != self._bounds:
+                self._pending_release += self._interpreter.finish()
+                self._stabilizer = GestureStabilizer()
+                self._mapper.set_active_rect(bounds)
+                self._bounds = bounds
         pending, self._pending_release = self._pending_release, ()
         if self._bounds is not None and (
             hand is None or not contains(hand.image_points[CURSOR_POINT], frame_size, self._bounds)

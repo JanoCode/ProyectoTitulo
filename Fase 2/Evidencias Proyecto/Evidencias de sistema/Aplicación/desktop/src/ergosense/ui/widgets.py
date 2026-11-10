@@ -295,7 +295,9 @@ class CameraView(QWidget):
         left = area.left() + (area.width() - width) / 2
         top = area.top() + (area.height() - height) / 2
         painter.drawImage(QRectF(left, top, width, height), self._image)
-        x1, y1, x2, y2 = control_area(self.control_side)
+        x1, y1, x2, y2 = control_area(
+            self.control_side, (self._image.width(), self._image.height())
+        )
         active = QRectF(left + x1 * width, top + y1 * height,
                        (x2 - x1) * width, (y2 - y1) * height)
         outside = QPainterPath()
