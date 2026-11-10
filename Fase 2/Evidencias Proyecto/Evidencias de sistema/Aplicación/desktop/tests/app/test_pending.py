@@ -2,6 +2,8 @@
 
 from datetime import UTC, datetime
 
+import pytest
+
 from ergosense.api_client import ApiClientError
 from ergosense.api_client.pending import RETRY_SECONDS, PendingQueue
 from ergosense.app.remote_session import RemoteUsageSession
@@ -111,3 +113,25 @@ def test_al_cerrar_se_intenta_enviar_lo_pendiente():
     server.online = True
     queue.retry_now()
     assert server.calls == [("start_session",), ("end_session", 1)]
+
+
+@pytest.mark.parametrize("status", [408, 429, 500, 502, 503, 504])
+def test_transient_server_failure_preserves_records(status):
+    clock = Clock()
+    calls = []
+    available = False
+
+    def send():
+        if not available:
+            raise ApiClientError("Temporal", status)
+        calls.append("registro")
+
+    queue = PendingQueue(lambda: True, clock)
+    queue.submit(send)
+    assert queue.pending == 1
+    assert not queue.online
+    available = True
+    clock.now = 30
+    queue.poll()
+    assert calls == ["registro"]
+    assert queue.pending == 0

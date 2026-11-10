@@ -40,7 +40,8 @@ class PendingQueue:
             try:
                 self._operations[0]()
             except ApiClientError as error:
-                if error.status_code is None:  # no hubo respuesta: se reintenta luego
+                if (error.status_code is None or error.status_code >= 500
+                        or error.status_code in (408, 429)):
                     self.report_offline()
                     return
                 # El servidor la rechazó: repetirla daría el mismo resultado.
