@@ -3,6 +3,7 @@
 from datetime import UTC, datetime
 
 from fastapi import HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models import Break, UsageSession
@@ -33,6 +34,13 @@ def start_usage_session(
     started_at: datetime | None,
 ) -> UsageSession:
     """Crea una sesión solo si la cuenta no tiene otra abierta."""
+    if started_at is not None:
+        existing = database.scalar(select(UsageSession).where(
+            UsageSession.user_id == user_id,
+            UsageSession.started_at == aware_utc(started_at),
+        ))
+        if existing is not None:
+            return existing
     if get_open_session(database, user_id) is not None:
         raise HTTPException(
             status.HTTP_409_CONFLICT,
@@ -84,6 +92,13 @@ def start_break(
 ) -> Break:
     """Registra una pausa únicamente en una sesión abierta del usuario."""
     session = get_session_for_user(database, session_id, user_id)
+    if session is not None:
+        existing = database.scalar(select(Break).where(
+            Break.usage_session_id == session_id,
+            Break.started_at == aware_utc(started_at),
+        ))
+        if existing is not None:
+            return existing
     if session is None or session.ended_at is not None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "La sesión no existe.")
     if get_open_break(database, session.id) is not None:

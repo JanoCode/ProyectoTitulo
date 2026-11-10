@@ -31,6 +31,44 @@ def test_detener_sin_haber_iniciado_no_falla():
     ActionExecutor(lambda action: None).stop()
 
 
+def test_batch_does_not_interleave_with_concurrent_actions():
+    performed = []
+    entered, release = threading.Event(), threading.Event()
+
+    def perform(action):
+        performed.append(action)
+        if action == "primero":
+            entered.set()
+            assert release.wait(2)
+
+    executor = ActionExecutor(perform)
+    executor.start()
+    executor.submit_batch(["primero", "segundo"])
+    assert entered.wait(2)
+    executor.submit("externo")
+    release.set()
+    executor.stop()
+    assert performed == ["primero", "segundo", "externo"]
+
+
+def test_action_failure_does_not_kill_executor():
+    performed, errors = [], []
+
+    def perform(action):
+        if action == "fallo":
+            raise ValueError("Error de acción")
+        performed.append(action)
+
+    executor = ActionExecutor(perform, errors.append)
+    executor.start()
+    executor.start()
+    executor.submit_batch(["fallo", "omitida"])
+    executor.submit("siguiente")
+    executor.stop()
+    assert performed == ["siguiente"]
+    assert len(errors) == 1
+
+
 def test_el_monitor_principal_empieza_en_el_origen_y_tiene_tamano():
     left, top, width, height = primary_screen()
     assert (left, top) == (0, 0)

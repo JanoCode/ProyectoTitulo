@@ -39,8 +39,9 @@ class MacroLibrary:
 
     def load(self):
         """Descarga las macros de la cuenta y las aplicaciones del equipo (SB05-T23)."""
-        self.macros = list(self._api.list_macros())
-        self.applications = list(self._api.list_applications(self.device))
+        macros = list(self._api.list_macros())
+        applications = list(self._api.list_applications(self.device))
+        self.macros, self.applications = macros, applications
         self._changed()
 
     # ---------- macros
