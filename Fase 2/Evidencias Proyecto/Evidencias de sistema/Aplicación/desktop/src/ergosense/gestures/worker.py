@@ -75,6 +75,8 @@ class GestureWorker(QObject):
 
     def start(self):
         """Abre la cámara y empieza a reconocer gestos en un hilo propio."""
+        if self.running:
+            return
         self._stop_requested.clear()
         self._thread = threading.Thread(target=self.run, name="gestos", daemon=True)
         self._thread.start()
@@ -100,12 +102,13 @@ class GestureWorker(QObject):
         if not self._camera.open():
             self.camera_unavailable.emit()
             return
-        tracker = self._tracker_factory()
+        tracker = None
         last_gesture = None
         had_hand = None
         acting = self._actions_enabled
         missed = 0
         try:
+            tracker = self._tracker_factory()
             while not self._stop_requested.is_set():
                 frame = self._camera.read()
                 if frame is None:
@@ -147,9 +150,16 @@ class GestureWorker(QObject):
                 if hand is not None:
                     points = [(x / width, y / height) for x, y in hand.image_points]
                 self.frame_ready.emit(_to_qimage(frame), points)
+        except (OSError, RuntimeError, ValueError):
+            self.camera_unavailable.emit()
         finally:
             # Pase lo que pase, nunca queda el botón presionado ni la cámara abierta.
-            for action in self._pipeline.finish():
-                self._executor.submit(action)
-            tracker.close()
-            self._camera.close()
+            try:
+                for action in self._pipeline.finish():
+                    self._executor.submit(action)
+            finally:
+                try:
+                    if tracker is not None:
+                        tracker.close()
+                finally:
+                    self._camera.close()

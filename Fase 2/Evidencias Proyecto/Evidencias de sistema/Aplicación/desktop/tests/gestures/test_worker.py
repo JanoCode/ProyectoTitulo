@@ -217,6 +217,20 @@ def test_running_indica_si_el_hilo_esta_funcionando():
     assert worker.running is False
 
 
+def test_tracker_initialization_failure_releases_the_camera():
+    worker, camera, *_ = make_worker()
+    warnings = []
+
+    def unavailable():
+        raise RuntimeError("Detector unavailable")
+
+    worker._tracker_factory = unavailable
+    worker.camera_unavailable.connect(lambda: warnings.append(True))
+    worker.run()
+    assert camera.closed
+    assert warnings == [True]
+
+
 # --- Vista previa (Sprint 04): la cámara puede estar encendida sin ejecutar acciones
 
 
