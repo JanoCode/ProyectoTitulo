@@ -349,7 +349,7 @@ def test_reload_failure_keeps_the_previous_complete_library():
 
     library, *_ = make()
     previous = library.macros
-    library._api.list_macros = lambda: []
+    library._api.list_macros = list
 
     def disconnected(device):
         raise ApiClientError("Sin conexión")

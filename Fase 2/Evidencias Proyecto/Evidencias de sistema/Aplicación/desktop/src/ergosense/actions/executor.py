@@ -58,5 +58,5 @@ class ActionExecutor:
                             break
                 else:
                     self._perform(action)
-            except Exception as error:
+            except (OSError, ValueError, KeyError, RuntimeError) as error:
                 self._on_error(error)

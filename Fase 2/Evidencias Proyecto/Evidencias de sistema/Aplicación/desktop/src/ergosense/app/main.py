@@ -139,7 +139,12 @@ def main():
     runner = ActionRunner(
         mouse, on_error=lambda message: macro_controller.report_error(message)
     )
-    executor = ActionExecutor(runner.perform)
+    executor = ActionExecutor(
+        runner.perform,
+        on_error=lambda error: macro_controller.report_error(
+            "No se pudo ejecutar la acción. Comprueba la aplicación de destino."
+        ),
+    )
     executor.start()
     gestures = GestureWorker(
         Camera(),
