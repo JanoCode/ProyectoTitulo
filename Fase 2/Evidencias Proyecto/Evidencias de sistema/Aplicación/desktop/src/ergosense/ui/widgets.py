@@ -287,7 +287,7 @@ class CameraView(QWidget):
         if self._image is None or self._image.isNull():
             return
 
-        # La imagen llena el recuadro sin deformarse: se recorta lo que sobra.
+        # La imagen completa conserva sus proporciones para no ocultar el área activa.
         scale = min(
             area.width() / self._image.width(), area.height() / self._image.height()
         )

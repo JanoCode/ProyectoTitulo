@@ -1,6 +1,6 @@
 """Conversión de la posición de la mano en la posición del cursor (PB-09).
 
-Usa solo la parte central de la imagen de la cámara (zona activa) y la estira
+Usa la región activa configurada de la imagen de la cámara y la estira
 hasta cubrir la pantalla, suavizando el movimiento e ignorando los temblores.
 No mueve el mouse: solo calcula hacia dónde debe ir.
 """

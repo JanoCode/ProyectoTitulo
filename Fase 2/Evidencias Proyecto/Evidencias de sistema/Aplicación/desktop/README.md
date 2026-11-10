@@ -95,7 +95,11 @@ Los gestos se hacen con la **palma de frente a la cámara**, partiendo de la man
 | Dos dedos | Índice y medio estirados, el resto doblado | Scroll: subir o bajar la mano. |
 | Puño y "L" | Todos los dedos doblados, o índice y pulgar en "L" | Sin acción predefinida: activan las macros que los usen. |
 
-El cursor sigue el centro de la palma, que no se mueve al doblar el pulgar o el índice, y se mueve solo dentro del monitor principal. Para evitar activaciones accidentales (PB-13), un gesto debe mantenerse unos 0,1 s para contar, cada click se ejecuta una sola vez y las poses que no corresponden a un gesto no hacen nada.
+El cursor sigue el centro de la palma dentro del recuadro lateral «Área de acción», que representa todo el monitor principal. No es necesario cruzar la mano por delante de la cara: el borde izquierdo del recuadro corresponde al extremo izquierdo de la pantalla y el derecho al extremo derecho. En Configuración se elige el lado derecho o izquierdo de la imagen en espejo; el lado elegido se guarda en la cuenta.
+
+Fuera del recuadro no se mueve el cursor ni se ejecutan clics, scroll o macros de gesto. Al salir se cancela un clic pendiente y se libera cualquier arrastre. Al volver a entrar se exige otra vez un gesto estable. La voz y el monitoreo continúan funcionando. La vista muestra la imagen completa, con bandas si hacen falta, para que el recuadro visible coincida con el área reconocida.
+
+Para evitar activaciones accidentales (PB-13), un gesto debe mantenerse unos 0,1 s para contar, cada click se ejecuta una sola vez y las poses que no corresponden a un gesto no hacen nada.
 
 Los umbrales de cada gesto están en `src/ergosense/gestures/classifier.py` y se calibraron con una mano real. Para calibrarlos con otra mano, ejecuta `uv run python scripts/calibrate_gestures.py`, sigue las instrucciones en pantalla y ajusta las constantes con los valores que muestra.
 
