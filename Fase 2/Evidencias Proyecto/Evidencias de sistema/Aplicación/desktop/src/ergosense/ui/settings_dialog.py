@@ -38,7 +38,7 @@ class SettingsDialog(QDialog):
         body.setContentsMargins(22, 20, 22, 18)
         body.setSpacing(8)
         body.addWidget(label("Configuración", "dialogTitle"))
-        body.addWidget(label("Área de acción de la mano", "fieldLabel"))
+        body.addWidget(label("Área de acción de la mano (16:9)", "fieldLabel"))
         self.side_input = QComboBox()
         self.side_input.addItem("Derecha de la imagen", "right")
         self.side_input.addItem("Izquierda de la imagen", "left")
@@ -46,7 +46,8 @@ class SettingsDialog(QDialog):
         self.side_input.setMinimumHeight(38)
         body.addWidget(self.side_input)
         body.addWidget(label(
-            "Mueve la mano dentro del recuadro para recorrer toda la pantalla. "
+            "El recuadro horizontal 16:9 representa toda la pantalla. "
+            "Mueve la mano dentro para recorrerla. "
             "Fuera del área no se ejecutan gestos. La imagen está en espejo.",
             "muted", wrap=True,
         ))

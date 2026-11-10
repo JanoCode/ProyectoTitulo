@@ -85,6 +85,10 @@ La ventana principal muestra:
 
 ## Control mediante gestos
 
+El área lateral es un recuadro horizontal 16:9, equivalente al formato de pantalla
+soportado. Su altura se adapta a las dimensiones del video para conservar esa
+proporción tanto en el dibujo como en el reconocimiento.
+
 Los gestos se hacen con la **palma de frente a la cámara**, partiendo de la mano abierta. El pulgar funciona como el botón izquierdo y el índice como el derecho.
 
 | Gesto | Cómo se hace | Acción |

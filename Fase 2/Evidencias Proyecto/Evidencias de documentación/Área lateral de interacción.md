@@ -24,10 +24,20 @@ Al salir se suelta un arrastre y se cancela un clic que todavía no se confirmó
 Al regresar se vuelve a exigir estabilidad. Cambiar de lado reinicia la posición
 suavizada y el estado de los gestos anteriores.
 
-| Lado | Límites horizontales de la imagen | Límites verticales |
-| --- | --- | --- |
-| Derecho | 58 % a 94 % | 18 % a 82 % |
-| Izquierdo | 6 % a 42 % | 18 % a 82 % |
+El área es horizontal y mantiene proporción física 16:9, equivalente al monitor
+soportado actualmente. Su altura se calcula a partir del ancho y de las
+dimensiones reales del video; usar porcentajes verticales fijos distorsionaría
+el recuadro cuando la cámara entrega una imagen 4:3.
+
+| Lado | Límites horizontales habituales | Video de 640 × 480 | Video de 1280 × 720 |
+| --- | --- | --- | --- |
+| Derecho | 58 % a 94 % | Alto de 36,5 % a 63,5 % | Alto de 32 % a 68 % |
+| Izquierdo | 6 % a 42 % | Alto de 36,5 % a 63,5 % | Alto de 32 % a 68 % |
+
+Para un ancho de región W píxeles, la altura es W × 9 / 16. El recuadro se centra
+verticalmente y se reduce si fuera necesario para permanecer dentro del video.
+Esto adapta la región al formato de captura sin incorporar soporte para otras
+proporciones de monitor.
 
 Ambos recuadros cubren el monitor principal completo. El rectángulo se dibuja con
 las mismas coordenadas normalizadas que utiliza el mapeo del cursor. El video se
