@@ -15,6 +15,8 @@ def test_small_side_area_maps_to_the_entire_screen(side):
     mapper.set_active_rect((x1, y1, x2, y2))
     assert mapper.update((640*x1, 480*y1), (640,480)) == (0,0)
     assert mapper.update((640*x2, 480*y2), (640,480)) == (1919,1079)
+    assert mapper.update((640*x1, 480*y2), (640,480)) == (0,1079)
+    assert mapper.update((640*x2, 480*y1), (640,480)) == (1919,0)
     assert mapper.update((640*(x1+x2)/2, 480*(y1+y2)/2), (640,480)) == (960,540)
 
 

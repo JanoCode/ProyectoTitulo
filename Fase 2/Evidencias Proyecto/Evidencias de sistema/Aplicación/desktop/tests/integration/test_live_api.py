@@ -43,7 +43,8 @@ def account():
 
 def test_settings_macros_and_device_applications_survive_new_login(account):
     first, email, password = account
-    first.update_settings({"inactivity_break_minutes": 7, "voice_enabled": False})
+    first.update_settings({"inactivity_break_minutes": 7, "voice_enabled": False,
+                           "gesture_control_side": "left"})
     library = MacroLibrary(first, device="QA-A")
     library.save_application("Editor QA", r"C:\Windows\notepad.exe")
     macro = library.save_macro({
@@ -56,6 +57,7 @@ def test_settings_macros_and_device_applications_survive_new_login(account):
         second.login(email, password)
         assert second.settings["inactivity_break_minutes"] == 7
         assert second.settings["voice_enabled"] is False
+        assert second.settings["gesture_control_side"] == "left"
         other_device = MacroLibrary(second, device="QA-B")
         other_device.load()
         assert other_device.find("VOICE", "escribir saludo")["id"] == macro["id"]
