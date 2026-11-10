@@ -29,3 +29,18 @@ def test_repeated_break_creation_does_not_lose_following_events(client, database
     closed = client.patch(f"/api/v1/breaks/{first['id']}", headers=headers,
                           json={"ended_at": "2026-11-10T12:15:00Z"})
     assert closed.status_code == 200
+
+
+def test_session_cannot_close_before_its_open_break(client):
+    headers = bearer(create_account_and_token(client, "chronology@example.com"))
+    session = client.post("/api/v1/usage-sessions", headers=headers,
+                          json={"started_at": "2026-11-10T12:00:00Z"}).json()
+    url = f"/api/v1/usage-sessions/{session['id']}"
+    pause = client.post(f"{url}/breaks", headers=headers,
+                        json={"started_at": "2026-11-10T12:10:00Z"}).json()
+    response = client.patch(url, headers=headers,
+                            json={"ended_at": "2026-11-10T12:05:00Z"})
+    assert response.status_code == 422
+    response = client.patch(f"/api/v1/breaks/{pause['id']}", headers=headers,
+                            json={"ended_at": "2026-11-10T12:15:00Z"})
+    assert response.status_code == 200
