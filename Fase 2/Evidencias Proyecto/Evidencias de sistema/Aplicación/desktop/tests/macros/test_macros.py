@@ -323,3 +323,22 @@ def test_modifier_is_released_when_the_next_press_fails():
     with pytest.raises(OSError):
         runner._press("ctrl+shift+t")
     assert keyboard.events == [("press", Key.ctrl), ("release", Key.ctrl)]
+
+
+def test_failed_macro_step_stops_the_batch_but_not_later_actions():
+    from ergosense.actions.executor import ActionExecutor
+
+    errors = []
+    keyboard = FakeKeyboard()
+    runner = ActionRunner(FakeMouse(), keyboard, open_url=lambda url: False,
+                          on_error=errors.append)
+    executor = ActionExecutor(runner.perform)
+    executor.start()
+    executor.submit_batch([
+        MacroStep("OPEN_URL", "https://duoc.cl", "Correo"),
+        MacroStep("TYPE_TEXT", "No escribir"),
+    ])
+    executor.submit(MacroStep("TYPE_TEXT", "Nueva acción"))
+    executor.stop()
+    assert keyboard.events == [("type", "Nueva acción")]
+    assert len(errors) == 1
