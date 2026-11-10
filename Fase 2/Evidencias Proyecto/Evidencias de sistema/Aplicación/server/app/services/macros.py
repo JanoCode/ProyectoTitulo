@@ -77,7 +77,7 @@ def validate_triggers(
         )
         error = catalog.trigger_error(kind, value)
         if error:
-            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, error)
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, error)
         conflict = catalog.trigger_conflict(kind, value)
         key = (kind, catalog.normalize_phrase(value))
         if conflict is None and key in used:

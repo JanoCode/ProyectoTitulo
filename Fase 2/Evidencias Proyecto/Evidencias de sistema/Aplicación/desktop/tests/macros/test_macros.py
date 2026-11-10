@@ -78,6 +78,9 @@ class FakeExecutor:
     def submit(self, action):
         self.submitted.append(action)
 
+    def submit_batch(self, actions):
+        self.submitted.extend(actions)
+
 
 def make(voice=True, gestures=True, applications=()):
     library = MacroLibrary(FakeApi([MAIL, NOTES], applications), device="PC-PRUEBA")
@@ -161,7 +164,7 @@ def test_cp_05_08_sin_la_aplicacion_en_este_equipo_pide_registrarla(qapp):
     controller.application_missing.connect(missing.append)
     controller.handle_gesture("fist")
     assert missing == ["Bloc de notas"]
-    assert [step.action_type for step in executor.submitted] == ["TYPE_TEXT"]
+    assert executor.submitted == []
 
 
 def test_cp_05_11_con_el_control_desactivado_no_se_ejecuta():
@@ -304,3 +307,55 @@ def test_si_no_puede_abrir_la_aplicacion_avisa_y_no_se_cae():
     )
     runner.perform(MacroStep("OPEN_APP", r"C:\no-existe.exe", "Notas"))
     assert errors == [r"La macro «Notas» no pudo abrir C:\no-existe.exe."]
+
+
+def test_modifier_is_released_when_the_next_press_fails():
+    from pynput.keyboard import Key
+
+    class BrokenKeyboard(FakeKeyboard):
+        def press(self, key):
+            if key == Key.shift:
+                raise OSError("Keyboard unavailable")
+            super().press(key)
+
+    keyboard = BrokenKeyboard()
+    runner = ActionRunner(FakeMouse(), keyboard)
+    with pytest.raises(OSError):
+        runner._press("ctrl+shift+t")
+    assert keyboard.events == [("press", Key.ctrl), ("release", Key.ctrl)]
+
+
+def test_failed_macro_step_stops_the_batch_but_not_later_actions():
+    from ergosense.actions.executor import ActionExecutor
+
+    errors = []
+    keyboard = FakeKeyboard()
+    runner = ActionRunner(FakeMouse(), keyboard, open_url=lambda url: False,
+                          on_error=errors.append)
+    executor = ActionExecutor(runner.perform)
+    executor.start()
+    executor.submit_batch([
+        MacroStep("OPEN_URL", "https://duoc.cl", "Correo"),
+        MacroStep("TYPE_TEXT", "No escribir"),
+    ])
+    executor.submit(MacroStep("TYPE_TEXT", "Nueva acción"))
+    executor.stop()
+    assert keyboard.events == [("type", "Nueva acción")]
+    assert len(errors) == 1
+
+
+def test_reload_failure_keeps_the_previous_complete_library():
+    from ergosense.api_client import ApiClientError
+
+    library, *_ = make()
+    previous = library.macros
+    library._api.list_macros = list
+
+    def disconnected(device):
+        raise ApiClientError("Sin conexión")
+
+    library._api.list_applications = disconnected
+    with pytest.raises(ApiClientError):
+        library.load()
+    assert library.macros is previous
+    assert library.find("VOICE", "abrir correo") is not None

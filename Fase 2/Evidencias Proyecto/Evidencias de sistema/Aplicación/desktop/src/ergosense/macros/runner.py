@@ -74,16 +74,19 @@ class ActionRunner:
             return
         try:
             self._run(action)
-        except OSError:
+        except (OSError, ValueError, KeyError):
             # Por ejemplo, la aplicación se desinstaló. El hilo de acciones sigue.
             self._on_error(
                 f"La macro «{action.macro_name}» no pudo abrir {action.value}."
             )
+            return False
+        return True
 
     def _run(self, step):
         kind, value = step.action_type, step.value
         if kind == "OPEN_URL":
-            self._open_url(value)
+            if self._open_url(value) is False:
+                raise OSError("No se pudo abrir el navegador")
         elif kind == "OPEN_APP":
             self._start_process([value], cwd=str(Path(value).parent))
         elif kind == "KEY_PRESS":
@@ -92,18 +95,27 @@ class ActionRunner:
             self._keyboard.type(value)
         elif kind == "MOUSE_CLICK":
             self._mouse.perform(CLICKS[value])
+        else:
+            raise ValueError("Tipo de acción no soportado")
 
     def _press(self, combination):
         """Presiona los modificadores, la tecla final y los suelta en orden inverso."""
         *modifiers, key = combination.lower().split("+")
         held = [KEYS[name] for name in modifiers]
         final = KEYS.get(key, key)
-        for modifier in held:
-            self._keyboard.press(modifier)
+        pressed = []
         try:
+            for modifier in held:
+                self._keyboard.press(modifier)
+                pressed.append(modifier)
             self._keyboard.press(final)
+            pressed.append(final)
             self._keyboard.release(final)
+            pressed.pop()
         finally:
             # Nunca queda una tecla presionada, aunque algo falle.
-            for modifier in reversed(held):
-                self._keyboard.release(modifier)
+            for key in reversed(pressed):
+                try:
+                    self._keyboard.release(key)
+                except OSError:
+                    pass

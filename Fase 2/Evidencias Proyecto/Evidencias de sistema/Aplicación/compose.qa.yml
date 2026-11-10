@@ -1,0 +1,39 @@
+name: ergosense-qa
+services:
+  api:
+    build:
+      context: ./server
+    ports:
+      - "127.0.0.1:${QA_API_PORT:-18080}:8000"
+    environment:
+      POSTGRES_DB: ergosense_qa
+      POSTGRES_USER: ergosense_qa
+      POSTGRES_PASSWORD: "${QA_DB_PASSWORD:?Define QA_DB_PASSWORD}"
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      JWT_SECRET: "${QA_JWT_SECRET:?Define QA_JWT_SECRET}"
+      ENVIRONMENT: test
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+      start_period: 20s
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: ergosense_qa
+      POSTGRES_USER: ergosense_qa
+      POSTGRES_PASSWORD: "${QA_DB_PASSWORD:?Define QA_DB_PASSWORD}"
+    volumes:
+      - qa_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ergosense_qa -d ergosense_qa"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+volumes:
+  qa_data:
