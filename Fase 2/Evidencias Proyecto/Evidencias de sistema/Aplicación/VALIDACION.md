@@ -61,6 +61,34 @@ docker compose --env-file .env.qa -f compose.qa.yml stop
 
 ## Validación práctica pendiente
 
+Para comprobar cámara y micrófono simultáneamente sin ejecutar acciones del
+sistema ni guardar imágenes o sonido:
+
+```powershell
+Push-Location desktop
+uv run python scripts/download_voice_model.py
+uv run python scripts/check_devices.py --seconds 60
+uv run python scripts/check_voice_samples.py
+Pop-Location
+```
+
+La última orden requiere Windows con la voz SAPI Spanish Mexico. Genera muestras
+de audio sintéticas en una carpeta temporal, verifica los diez comandos y dos
+frases ajenas y retira las muestras al terminar. No utiliza la voz del usuario.
+
+Para medir una hora de reloj real con los dispositivos activos:
+
+```powershell
+Push-Location desktop
+uv run python scripts/check_devices.py --seconds 3601 --output "$env:TEMP\ergosense-hora-real.json"
+Pop-Location
+```
+
+`real_timer_passed` indica si el temporizador independiente avisó al cumplirse
+3600 segundos reales. Esta prueba no ejecuta acciones del sistema, no representa
+actividad continua de una persona y no comprueba el reinicio por pausas del
+controlador integrado. No sustituye los casos de aceptación de la tabla siguiente.
+
 Ejecutar la aplicación con `uv run ergosense` desde `desktop`, sin la variable
 `QT_QPA_PLATFORM=offscreen`. Para retirarla de la sesión de pruebas:
 

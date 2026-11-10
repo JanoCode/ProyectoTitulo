@@ -67,6 +67,24 @@ La simulación de jornada no mide consumo de memoria ni precisión de hardware.
 
 ## Reproducción
 
+### Comprobaciones adicionales de dispositivos
+
+Se verificó el acceso a una cámara real y al detector MediaPipe: se procesaron
+30 cuadros en 1,33 segundos. La cámara y el micrófono funcionaron simultáneamente
+durante una prueba posterior de 60,406 segundos, con 1773 cuadros procesados y
+ningún error de cámara. No se detectaron manos ni se reconocieron frases durante
+esa captura, por lo que no acredita precisión de gestos o voz humana. No se
+ejecutaron acciones sobre el computador ni se guardaron imágenes o audio.
+
+Se instaló el modelo Vosk oficial mediante el descargador del proyecto, con su
+verificación de huella. El modelo se guardó en la carpeta local de la aplicación.
+Los diez comandos base fueron reconocidos con muestras sintéticas de SAPI
+Spanish Mexico; dos frases ajenas no se resolvieron como comandos. Esta evidencia
+no representa una prueba de pronunciación humana ni de ruido ambiental real.
+
+Los scripts `check_devices.py` y `check_voice_samples.py` permiten repetir estas
+comprobaciones. La medición de una hora real sigue pendiente de ejecución.
+
 El procedimiento y los comandos están en
 [VALIDACION.md](../Evidencias%20de%20sistema/Aplicaci%C3%B3n/VALIDACION.md).
 La instancia QA usa `compose.qa.yml`, puerto 18080 y un volumen separado.
