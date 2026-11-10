@@ -9,6 +9,7 @@ from dataclasses import dataclass
 
 from ergosense.actions.action import Action
 from ergosense.gestures.classifier import Gesture, GestureClassifier
+from ergosense.gestures.control_area import contains, control_area
 from ergosense.gestures.cursor import CURSOR_POINT, CursorMapper
 from ergosense.gestures.interpreter import GestureInterpreter, GestureStabilizer
 
@@ -31,9 +32,29 @@ class GesturePipeline:
         self._stabilizer = GestureStabilizer()
         self._interpreter = GestureInterpreter(clock)
         self._mapper = CursorMapper(screen)
+        self._control_side = None
+        self._bounds = None
+        self._pending_release = ()
+
+    def set_control_side(self, side):
+        bounds = control_area(side)
+        if side != self._control_side:
+            self._pending_release += self._interpreter.finish()
+            self._stabilizer = GestureStabilizer()
+            self._mapper.set_active_rect(bounds)
+            self._bounds = bounds
+            self._control_side = side
 
     def process(self, hand, frame_size):
         """Procesa la mano de un cuadro (o None si no hay) y devuelve un Step."""
+        pending, self._pending_release = self._pending_release, ()
+        if self._bounds is not None and (
+            hand is None or not contains(hand.image_points[CURSOR_POINT], frame_size, self._bounds)
+        ):
+            actions = self._interpreter.finish()
+            self._mapper.reset()
+            self._stabilizer = GestureStabilizer()
+            return Step(gesture=Gesture.NONE, actions=pending + actions)
         raw = self._classifier.classify(None if hand is None else hand.world_points)
         gesture = self._stabilizer.update(raw)
         # El centro de la palma da la posición del cursor y la altura para el scroll.
@@ -46,7 +67,7 @@ class GesturePipeline:
             self._mapper.reset()
         elif decision.move_cursor:
             cursor = self._mapper.update(palm, frame_size)
-        return Step(gesture=gesture, cursor=cursor, actions=decision.actions)
+        return Step(gesture=gesture, cursor=cursor, actions=pending + decision.actions)
 
     def finish(self):
         """Acciones para terminar limpio, por ejemplo soltar el botón de un arrastre."""

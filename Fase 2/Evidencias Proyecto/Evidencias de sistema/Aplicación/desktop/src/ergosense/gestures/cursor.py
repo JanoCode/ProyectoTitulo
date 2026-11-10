@@ -40,6 +40,11 @@ class CursorMapper:
         self._margin = margin
         # Posición suavizada, con decimales. None mientras no haya cursor.
         self._position = None
+        self._active_rect = None
+
+    def set_active_rect(self, bounds):
+        self._active_rect = bounds
+        self.reset()
 
     def update(self, point, frame_size):
         """Devuelve la posición (x, y) del cursor en píxeles de la pantalla."""
@@ -69,11 +74,13 @@ class CursorMapper:
         frame_width, frame_height = frame_size
         # Fracción dentro de la zona activa: 0 en su borde izquierdo o superior y 1
         # en el derecho o inferior. Fuera de la zona se queda en 0 o en 1.
-        active = 1 - 2 * self._margin
+        left, top, right, bottom = self._active_rect or (
+            self._margin, self._margin, 1 - self._margin, 1 - self._margin
+        )
 
         # Para que el cursos no se salga de la pantalla si nosotros sacamops la mano
-        fraction_x = _clamp((x / frame_width - self._margin) / active, 0, 1)
-        fraction_y = _clamp((y / frame_height - self._margin) / active, 0, 1)
+        fraction_x = _clamp((x / frame_width - left) / (right - left), 0, 1)
+        fraction_y = _clamp((y / frame_height - top) / (bottom - top), 0, 1)
         return (
             self._left + fraction_x * self._width,
             self._top + fraction_y * self._height,
@@ -82,6 +89,6 @@ class CursorMapper:
     def _to_pixel(self, position):
         # El último píxel de una pantalla de 1920 es el 1919, porque se cuenta desde 0.
         x, y = position
-        pixel_x = _clamp(math.floor(x), self._left, self._left + self._width - 1)
-        pixel_y = _clamp(math.floor(y), self._top, self._top + self._height - 1)
+        pixel_x = _clamp(math.floor(x + 1e-9), self._left, self._left + self._width - 1)
+        pixel_y = _clamp(math.floor(y + 1e-9), self._top, self._top + self._height - 1)
         return (pixel_x, pixel_y)
