@@ -94,6 +94,7 @@ def test_records_recover_after_a_lost_post_response(account):
     pending.poll()
     assert pending.pending == 0
     assert remote._session.id is not None
+    remote._utc_clock = lambda: now + timedelta(minutes=20)
     remote.close()
     assert pending.pending == 0
 
