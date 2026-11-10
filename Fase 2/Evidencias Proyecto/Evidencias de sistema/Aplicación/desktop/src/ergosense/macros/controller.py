@@ -46,6 +46,7 @@ class MacroController(QObject):
         if macro is None:
             return False
         actions = sorted(macro["actions"], key=lambda action: action["execution_order"])
+        steps = []
         for action in actions:
             kind, value = action["action_type"], action["action_value"]
             if kind == "OPEN_APP":
@@ -53,8 +54,9 @@ class MacroController(QObject):
                 if path is None:
                     # La ruta depende del equipo: se pide registrarla y se sigue.
                     self.application_missing.emit(value)
-                    continue
+                    return False
                 value = path
-            self._executor.submit(MacroStep(kind, value, macro["name"]))
+            steps.append(MacroStep(kind, value, macro["name"]))
+        self._executor.submit_batch(steps)
         self._on_activity()
         return True

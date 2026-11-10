@@ -78,6 +78,9 @@ class FakeExecutor:
     def submit(self, action):
         self.submitted.append(action)
 
+    def submit_batch(self, actions):
+        self.submitted.extend(actions)
+
 
 def make(voice=True, gestures=True, applications=()):
     library = MacroLibrary(FakeApi([MAIL, NOTES], applications), device="PC-PRUEBA")
@@ -161,7 +164,7 @@ def test_cp_05_08_sin_la_aplicacion_en_este_equipo_pide_registrarla(qapp):
     controller.application_missing.connect(missing.append)
     controller.handle_gesture("fist")
     assert missing == ["Bloc de notas"]
-    assert [step.action_type for step in executor.submitted] == ["TYPE_TEXT"]
+    assert executor.submitted == []
 
 
 def test_cp_05_11_con_el_control_desactivado_no_se_ejecuta():
