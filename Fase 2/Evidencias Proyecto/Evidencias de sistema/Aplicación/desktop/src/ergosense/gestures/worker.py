@@ -64,6 +64,13 @@ class GestureWorker(QObject):
         self._thread = None
         # Con las acciones apagadas, la cámara solo sirve de vista previa.
         self._actions_enabled = True
+        self._control_side = None
+
+    def set_control_side(self, side):
+        from ergosense.gestures.control_area import control_area
+
+        control_area(side)
+        self._control_side = side
 
     @property
     def actions_enabled(self):
@@ -123,6 +130,8 @@ class GestureWorker(QObject):
 
                 hand = tracker.detect(frame)
                 height, width = frame.shape[:2]
+                if self._control_side is not None:
+                    self._pipeline.set_control_side(self._control_side)
                 step = self._pipeline.process(hand, (width, height))
 
                 enabled = self._actions_enabled

@@ -5,7 +5,7 @@ tiempo de inactividad a partir del cual se registra una pausa.
 """
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QDialog, QHBoxLayout, QSpinBox, QVBoxLayout
+from PySide6.QtWidgets import QComboBox, QDialog, QHBoxLayout, QSpinBox, QVBoxLayout
 
 from ergosense.api_client import ApiClientError
 from ergosense.ui import icons
@@ -38,6 +38,20 @@ class SettingsDialog(QDialog):
         body.setContentsMargins(22, 20, 22, 18)
         body.setSpacing(8)
         body.addWidget(label("Configuración", "dialogTitle"))
+        body.addWidget(label("Área de acción de la mano (16:9)", "fieldLabel"))
+        self.side_input = QComboBox()
+        self.side_input.addItem("Derecha de la imagen", "right")
+        self.side_input.addItem("Izquierda de la imagen", "left")
+        self.side_input.setCurrentIndex(self.side_input.findData(settings.get("gesture_control_side", "right")))
+        self.side_input.setMinimumHeight(38)
+        body.addWidget(self.side_input)
+        body.addWidget(label(
+            "El recuadro horizontal 16:9 representa toda la pantalla. "
+            "La guía interior permite llegar a los extremos sin acercar los dedos "
+            "al borde de la cámara. "
+            "Fuera del área no se ejecutan gestos. La imagen está en espejo.",
+            "muted", wrap=True,
+        ))
         body.addSpacing(8)
         body.addWidget(label("Registro de pausas", "muted"))
         body.addWidget(label("Tiempo de inactividad", "fieldLabel"))
@@ -81,7 +95,8 @@ class SettingsDialog(QDialog):
         """Envía el nuevo tiempo y mantiene abierta la ventana si hay un error."""
         try:
             self._api_client.update_settings(
-                {"inactivity_break_minutes": self.minutes_input.value()}
+                {"inactivity_break_minutes": self.minutes_input.value(),
+                 "gesture_control_side": self.side_input.currentData()}
             )
         except ApiClientError as error:
             # Si el servidor rechaza el cambio, se conserva la configuración anterior.

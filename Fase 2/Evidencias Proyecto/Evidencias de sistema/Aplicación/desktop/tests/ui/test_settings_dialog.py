@@ -29,6 +29,16 @@ def test_muestra_la_configuracion_actual(qapp):
     assert dialog.minutes_input.value() == 10
 
 
+def test_control_side_can_be_changed_and_saved(qapp):
+    client = FakeApiClient()
+    dialog = SettingsDialog(client)
+    dialog.side_input.setCurrentIndex(dialog.side_input.findData("left"))
+    dialog.submit()
+    assert client.sent["gesture_control_side"] == "left"
+    restored = SettingsDialog(client)
+    assert restored.side_input.currentData() == "left"
+
+
 def test_cp_03_13_guarda_el_nuevo_tiempo(qapp):
     client = FakeApiClient()
     dialog = SettingsDialog(client)
@@ -37,7 +47,7 @@ def test_cp_03_13_guarda_el_nuevo_tiempo(qapp):
     dialog.submit()
 
     # Los gestos y la voz se controlan con los interruptores de la ventana principal.
-    assert client.sent == {"inactivity_break_minutes": 15}
+    assert client.sent == {"inactivity_break_minutes": 15, "gesture_control_side": "right"}
     assert dialog.result() == dialog.DialogCode.Accepted
 
 

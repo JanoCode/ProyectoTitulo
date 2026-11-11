@@ -24,6 +24,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from ergosense.gestures.control_area import control_area, cursor_area
 from ergosense.ui import icons, theme
 
 
@@ -257,6 +258,7 @@ class CameraView(QWidget):
         self._points = None
         self.show_tracking = True
         self.gesture_text = ""
+        self.control_side = "right"
 
     def set_frame(self, image, points):
         """Recibe un cuadro (QImage) y los puntos de la mano entre 0 y 1, o None."""
@@ -285,14 +287,36 @@ class CameraView(QWidget):
         if self._image is None or self._image.isNull():
             return
 
-        # La imagen llena el recuadro sin deformarse: se recorta lo que sobra.
-        scale = max(
+        # La imagen completa conserva sus proporciones para no ocultar el área activa.
+        scale = min(
             area.width() / self._image.width(), area.height() / self._image.height()
         )
         width, height = self._image.width() * scale, self._image.height() * scale
         left = area.left() + (area.width() - width) / 2
         top = area.top() + (area.height() - height) / 2
         painter.drawImage(QRectF(left, top, width, height), self._image)
+        x1, y1, x2, y2 = control_area(
+            self.control_side, (self._image.width(), self._image.height())
+        )
+        active = QRectF(left + x1 * width, top + y1 * height,
+                       (x2 - x1) * width, (y2 - y1) * height)
+        outside = QPainterPath()
+        outside.addRect(QRectF(left, top, width, height))
+        inside = QPainterPath()
+        inside.addRect(active)
+        painter.fillPath(outside.subtracted(inside), QColor(0, 0, 0, 75))
+        painter.setPen(QPen(QColor(theme.PRIMARY), 2, Qt.PenStyle.DashLine))
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        painter.drawRoundedRect(active, 8, 8)
+        a, b, c, d = cursor_area((x1, y1, x2, y2))
+        travel = QRectF(left + a * width, top + b * height, (c-a)*width, (d-b)*height)
+        painter.setPen(QPen(QColor("white"), 1.5, Qt.PenStyle.DotLine))
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        painter.drawRect(travel)
+        self._draw_badge(
+            painter, QPointF(active.left(), max(area.top() + 8, active.top() - 34)),
+            "Área de acción",
+        )
 
         if self.show_tracking and self._points:
             points = [

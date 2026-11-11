@@ -1,11 +1,13 @@
 """Conversión de la posición de la mano en la posición del cursor (PB-09).
 
-Usa solo la parte central de la imagen de la cámara (zona activa) y la estira
+Usa la región activa configurada de la imagen de la cámara y la estira
 hasta cubrir la pantalla, suavizando el movimiento e ignorando los temblores.
 No mueve el mouse: solo calcula hacia dónde debe ir.
 """
 
 import math
+from collections import deque
+from statistics import median
 
 # Punto de la mano que sigue el cursor: la base del dedo medio, en el centro de la
 # palma. No se mueve al doblar el pulgar ni el índice, así los clicks no desplazan
@@ -40,9 +42,19 @@ class CursorMapper:
         self._margin = margin
         # Posición suavizada, con decimales. None mientras no haya cursor.
         self._position = None
+        self._active_rect = None
+        self._samples = deque(maxlen=3)
+
+    def set_active_rect(self, bounds):
+        self._active_rect = bounds
+        self.reset()
 
     def update(self, point, frame_size):
         """Devuelve la posición (x, y) del cursor en píxeles de la pantalla."""
+        stabilize = self._active_rect is not None and self._smoothing < 1
+        if stabilize:
+            self._samples.append(point)
+            point = (median(p[0] for p in self._samples), median(p[1] for p in self._samples))
         target = self._to_screen(point, frame_size)
 
         if self._position is None:
@@ -52,28 +64,46 @@ class CursorMapper:
             # Avanza solo una parte del camino: así no hay saltos bruscos. esto es cuando lo identifica por primera vez para que el cursos vaya directo
             x, y = self._position
             target_x, target_y = target
+            smoothing = self._smoothing
+            if stabilize:
+                fraction = _clamp(math.dist(target, self._position) / (self._width * 0.12), 0, 1)
+                smoothing *= 0.23 + 0.77 * fraction
             self._position = (
-                x + self._smoothing * (target_x - x),
-                y + self._smoothing * (target_y - y),
+                x + smoothing * (target_x - x),
+                y + smoothing * (target_y - y),
             )
         # Si el destino está dentro de la zona muerta, el cursor no se mueve.
 
+        x, y = self._position
+        target_x, target_y = target
+        x_edge = any(math.isclose(target_x, edge, rel_tol=0, abs_tol=1e-6)
+                     for edge in (self._left, self._left + self._width))
+        y_edge = any(math.isclose(target_y, edge, rel_tol=0, abs_tol=1e-6)
+                     for edge in (self._top, self._top + self._height))
+        if x_edge and abs(target_x - x) <= self._dead_zone:
+            x = target_x
+        if y_edge and abs(target_y - y) <= self._dead_zone:
+            y = target_y
+        self._position = x, y
         return self._to_pixel(self._position)
 
     def reset(self):
         """Olvida la posición: al volver la mano, el cursor irá directo a ella."""
         self._position = None
+        self._samples.clear()
 
     def _to_screen(self, point, frame_size):
         x, y = point
         frame_width, frame_height = frame_size
         # Fracción dentro de la zona activa: 0 en su borde izquierdo o superior y 1
         # en el derecho o inferior. Fuera de la zona se queda en 0 o en 1.
-        active = 1 - 2 * self._margin
+        left, top, right, bottom = self._active_rect or (
+            self._margin, self._margin, 1 - self._margin, 1 - self._margin
+        )
 
         # Para que el cursos no se salga de la pantalla si nosotros sacamops la mano
-        fraction_x = _clamp((x / frame_width - self._margin) / active, 0, 1)
-        fraction_y = _clamp((y / frame_height - self._margin) / active, 0, 1)
+        fraction_x = _clamp((x / frame_width - left) / (right - left), 0, 1)
+        fraction_y = _clamp((y / frame_height - top) / (bottom - top), 0, 1)
         return (
             self._left + fraction_x * self._width,
             self._top + fraction_y * self._height,
@@ -82,6 +112,6 @@ class CursorMapper:
     def _to_pixel(self, position):
         # El último píxel de una pantalla de 1920 es el 1919, porque se cuenta desde 0.
         x, y = position
-        pixel_x = _clamp(math.floor(x), self._left, self._left + self._width - 1)
-        pixel_y = _clamp(math.floor(y), self._top, self._top + self._height - 1)
+        pixel_x = _clamp(math.floor(x + 1e-9), self._left, self._left + self._width - 1)
+        pixel_y = _clamp(math.floor(y + 1e-9), self._top, self._top + self._height - 1)
         return (pixel_x, pixel_y)
