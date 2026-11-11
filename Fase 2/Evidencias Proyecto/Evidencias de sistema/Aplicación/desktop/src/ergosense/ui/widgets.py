@@ -313,7 +313,10 @@ class CameraView(QWidget):
         painter.setPen(QPen(QColor("white"), 1.5, Qt.PenStyle.DotLine))
         painter.setBrush(Qt.BrushStyle.NoBrush)
         painter.drawRect(travel)
-        self._draw_badge(painter, QPointF(active.left() + 6, active.top() + 6), "Área de acción")
+        self._draw_badge(
+            painter, QPointF(active.left(), max(area.top() + 8, active.top() - 34)),
+            "Área de acción",
+        )
 
         if self.show_tracking and self._points:
             points = [
