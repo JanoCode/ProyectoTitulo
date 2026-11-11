@@ -1,6 +1,6 @@
 SCREEN_ASPECT = 16 / 9
-AREA_WIDTH = 0.36
-CURSOR_INSET = 0.18
+AREA_WIDTH = 0.42
+CURSOR_INSET = 0.16
 
 
 def control_area(side, frame_size=(16, 9)):

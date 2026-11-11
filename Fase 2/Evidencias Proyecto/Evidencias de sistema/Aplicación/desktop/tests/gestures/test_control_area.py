@@ -108,3 +108,35 @@ def test_screen_corners_are_reached_before_the_hand_leaves_the_safety_area(side,
         step = pipeline.process(target, (640,480))
     assert step.cursor == (1919 if x else 0, 1079 if y else 0)
     assert step.gesture is Gesture.POINT
+
+
+def make_stabilized_mapper():
+    bounds = cursor_area(control_area("right", (640,480)))
+    mapper = CursorMapper((0,0,1920,1080))
+    mapper.set_active_rect(bounds)
+    center = ((bounds[0]+bounds[2])*320, (bounds[1]+bounds[3])*240)
+    for _ in range(6):
+        mapper.update(center, (640,480))
+    return mapper, center
+
+
+def test_small_hand_tremor_does_not_produce_large_cursor_oscillations():
+    mapper, (x,y) = make_stabilized_mapper()
+    positions = [mapper.update((x+(-1)**i, y+(-1)**i), (640,480)) for i in range(120)]
+    assert max(p[0] for p in positions)-min(p[0] for p in positions) <= 2
+    assert max(p[1] for p in positions)-min(p[1] for p in positions) <= 2
+
+
+def test_single_detection_spike_is_discarded():
+    mapper, (x,y) = make_stabilized_mapper()
+    assert mapper.update((x+25,y-25), (640,480)) == (960,540)
+    assert mapper.update((x,y), (640,480)) == (960,540)
+
+
+def test_deliberate_movement_remains_responsive_and_reset_discards_history():
+    mapper, (x,y) = make_stabilized_mapper()
+    for _ in range(15):
+        position = mapper.update((x+25,y), (640,480))
+    assert position[0] > 1190
+    mapper.reset()
+    assert mapper.update((x,y), (640,480)) == (960,540)

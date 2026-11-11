@@ -6,6 +6,8 @@ No mueve el mouse: solo calcula hacia dónde debe ir.
 """
 
 import math
+from collections import deque
+from statistics import median
 
 # Punto de la mano que sigue el cursor: la base del dedo medio, en el centro de la
 # palma. No se mueve al doblar el pulgar ni el índice, así los clicks no desplazan
@@ -41,6 +43,7 @@ class CursorMapper:
         # Posición suavizada, con decimales. None mientras no haya cursor.
         self._position = None
         self._active_rect = None
+        self._samples = deque(maxlen=3)
 
     def set_active_rect(self, bounds):
         self._active_rect = bounds
@@ -48,6 +51,10 @@ class CursorMapper:
 
     def update(self, point, frame_size):
         """Devuelve la posición (x, y) del cursor en píxeles de la pantalla."""
+        stabilize = self._active_rect is not None and self._smoothing < 1
+        if stabilize:
+            self._samples.append(point)
+            point = (median(p[0] for p in self._samples), median(p[1] for p in self._samples))
         target = self._to_screen(point, frame_size)
 
         if self._position is None:
@@ -57,9 +64,13 @@ class CursorMapper:
             # Avanza solo una parte del camino: así no hay saltos bruscos. esto es cuando lo identifica por primera vez para que el cursos vaya directo
             x, y = self._position
             target_x, target_y = target
+            smoothing = self._smoothing
+            if stabilize:
+                fraction = _clamp(math.dist(target, self._position) / (self._width * 0.12), 0, 1)
+                smoothing *= 0.23 + 0.77 * fraction
             self._position = (
-                x + self._smoothing * (target_x - x),
-                y + self._smoothing * (target_y - y),
+                x + smoothing * (target_x - x),
+                y + smoothing * (target_y - y),
             )
         # Si el destino está dentro de la zona muerta, el cursor no se mueve.
 
@@ -79,6 +90,7 @@ class CursorMapper:
     def reset(self):
         """Olvida la posición: al volver la mano, el cursor irá directo a ella."""
         self._position = None
+        self._samples.clear()
 
     def _to_screen(self, point, frame_size):
         x, y = point
