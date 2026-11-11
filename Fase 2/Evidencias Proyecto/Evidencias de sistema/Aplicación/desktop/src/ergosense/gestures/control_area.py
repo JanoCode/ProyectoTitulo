@@ -1,5 +1,6 @@
 SCREEN_ASPECT = 16 / 9
 AREA_WIDTH = 0.36
+CURSOR_INSET = 0.18
 
 
 def control_area(side, frame_size=(16, 9)):
@@ -20,3 +21,9 @@ def contains(point, frame_size, bounds):
     width, height = frame_size
     left, top, right, bottom = bounds
     return left <= x / width <= right and top <= y / height <= bottom
+
+
+def cursor_area(bounds):
+    left, top, right, bottom = bounds
+    dx, dy = (right - left) * CURSOR_INSET, (bottom - top) * CURSOR_INSET
+    return left + dx, top + dy, right - dx, bottom - dy

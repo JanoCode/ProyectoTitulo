@@ -2,7 +2,7 @@ import pytest
 
 from ergosense.actions.action import Action
 from ergosense.gestures.classifier import Gesture
-from ergosense.gestures.control_area import control_area
+from ergosense.gestures.control_area import control_area, cursor_area
 from ergosense.gestures.cursor import CursorMapper
 from ergosense.gestures.hand import Hand
 from ergosense.gestures.pipeline import GesturePipeline
@@ -88,3 +88,23 @@ def test_changing_side_resets_the_previous_gesture():
     pipeline.set_control_side("left")
     assert pipeline.process(hand(480,240), (640,480)).cursor is None
     assert pipeline.process(hand(160,240), (640,480)).gesture is Gesture.NONE
+
+
+@pytest.mark.parametrize("side", ["left", "right"])
+@pytest.mark.parametrize("corner", [(0,0), (0,1), (1,0), (1,1)])
+def test_screen_corners_are_reached_before_the_hand_leaves_the_safety_area(side, corner):
+    bounds = control_area(side, (640,480))
+    left, top, right, bottom = cursor_area(bounds)
+    assert bounds[0] < left < right < bounds[2]
+    assert bounds[1] < top < bottom < bounds[3]
+    pipeline = GesturePipeline((0,0,1920,1080), lambda: 0, Classifier())
+    pipeline.set_control_side(side)
+    center = hand((left+right)*320, (top+bottom)*240)
+    for _ in range(3):
+        pipeline.process(center, (640,480))
+    x, y = corner
+    target = hand((right if x else left)*640, (bottom if y else top)*480)
+    for _ in range(100):
+        step = pipeline.process(target, (640,480))
+    assert step.cursor == (1919 if x else 0, 1079 if y else 0)
+    assert step.gesture is Gesture.POINT

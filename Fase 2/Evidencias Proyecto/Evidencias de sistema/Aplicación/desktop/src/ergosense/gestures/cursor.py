@@ -63,6 +63,17 @@ class CursorMapper:
             )
         # Si el destino está dentro de la zona muerta, el cursor no se mueve.
 
+        x, y = self._position
+        target_x, target_y = target
+        x_edge = any(math.isclose(target_x, edge, rel_tol=0, abs_tol=1e-6)
+                     for edge in (self._left, self._left + self._width))
+        y_edge = any(math.isclose(target_y, edge, rel_tol=0, abs_tol=1e-6)
+                     for edge in (self._top, self._top + self._height))
+        if x_edge and abs(target_x - x) <= self._dead_zone:
+            x = target_x
+        if y_edge and abs(target_y - y) <= self._dead_zone:
+            y = target_y
+        self._position = x, y
         return self._to_pixel(self._position)
 
     def reset(self):

@@ -9,7 +9,7 @@ from dataclasses import dataclass
 
 from ergosense.actions.action import Action
 from ergosense.gestures.classifier import Gesture, GestureClassifier
-from ergosense.gestures.control_area import contains, control_area
+from ergosense.gestures.control_area import contains, control_area, cursor_area
 from ergosense.gestures.cursor import CURSOR_POINT, CursorMapper
 from ergosense.gestures.interpreter import GestureInterpreter, GestureStabilizer
 
@@ -41,7 +41,7 @@ class GesturePipeline:
         if side != self._control_side:
             self._pending_release += self._interpreter.finish()
             self._stabilizer = GestureStabilizer()
-            self._mapper.set_active_rect(bounds)
+            self._mapper.set_active_rect(cursor_area(bounds))
             self._bounds = bounds
             self._control_side = side
 
@@ -52,7 +52,7 @@ class GesturePipeline:
             if bounds != self._bounds:
                 self._pending_release += self._interpreter.finish()
                 self._stabilizer = GestureStabilizer()
-                self._mapper.set_active_rect(bounds)
+                self._mapper.set_active_rect(cursor_area(bounds))
                 self._bounds = bounds
         pending, self._pending_release = self._pending_release, ()
         if self._bounds is not None and (
