@@ -95,6 +95,11 @@ no hace falta llevar el centro de la palma al borde exterior para alcanzar una
 esquina. El suavizado converge hasta el píxel extremo al mantener la mano en la
 esquina de la guía interior.
 
+El recorrido útil se amplió para reducir la sensibilidad. El cursor aplica un
+filtro de tres cuadros y suavizado adaptativo: los movimientos pequeños se
+amortiguan más y los grandes responden con mayor rapidez. Esto reduce el temblor
+y los saltos aislados de detección sin cambiar los gestos de clic o arrastre.
+
 Los gestos se hacen con la **palma de frente a la cámara**, partiendo de la mano abierta. El pulgar funciona como el botón izquierdo y el índice como el derecho.
 
 | Gesto | Cómo se hace | Acción |

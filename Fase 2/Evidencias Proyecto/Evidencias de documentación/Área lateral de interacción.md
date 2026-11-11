@@ -31,8 +31,8 @@ el recuadro cuando la cámara entrega una imagen 4:3.
 
 | Lado | Límites horizontales habituales | Video de 640 × 480 | Video de 1280 × 720 |
 | --- | --- | --- | --- |
-| Derecho | 58 % a 94 % | Alto de 36,5 % a 63,5 % | Alto de 32 % a 68 % |
-| Izquierdo | 6 % a 42 % | Alto de 36,5 % a 63,5 % | Alto de 32 % a 68 % |
+| Derecho | 52 % a 94 % | Alto de 34,25 % a 65,75 % | Alto de 29 % a 71 % |
+| Izquierdo | 6 % a 48 % | Alto de 34,25 % a 65,75 % | Alto de 29 % a 71 % |
 
 Para un ancho de región W píxeles, la altura es W × 9 / 16. El recuadro se centra
 verticalmente y se reduce si fuera necesario para permanecer dentro del video.
@@ -46,7 +46,7 @@ ajusta completo, sin recorte, para evitar discrepancias al redimensionar la vent
 ### Margen para la mano
 
 La guía interior punteada delimita el recorrido del centro de la palma que se
-mapea a la pantalla completa. Se obtiene dejando un 18 % de margen en cada borde
+mapea a la pantalla completa. Se obtiene dejando un 16 % de margen en cada borde
 del recuadro exterior. Ambas figuras conservan la proporción 16:9. La banda entre
 ellas permite que los dedos permanezcan dentro de la captura cuando la palma
 alcanza una esquina. Dentro de esa banda el cursor permanece en el extremo
@@ -57,6 +57,25 @@ la guía interior. El suavizado se ajusta al píxel extremo cuando está a menos
 la zona muerta de ese borde, para que las esquinas sean accesibles sin un
 desplazamiento adicional. La comodidad depende del tamaño y distancia de la mano;
 esta corrección no representa una garantía de precisión del detector.
+
+### Estabilización del cursor
+
+La región exterior ocupa el 42 % del ancho de la captura. La guía interior ocupa
+el 68 % de esa región, frente al 64 % de una región del 36 % anterior: el recorrido
+útil aumenta aproximadamente un 24 % por eje y reduce la ganancia por movimiento.
+El margen derecho para los dedos se conserva prácticamente igual.
+
+Cuando se usa una región configurada y el suavizado está habilitado, la posición
+se filtra mediante la mediana de los tres últimos cuadros. Los desplazamientos
+pequeños usan mayor suavizado, y los grandes conservan una respuesta más rápida.
+La zona muerta sigue evitando microdesplazamientos. Al salir, volver a entrar o
+cambiar de lado se descarta el historial para no arrastrar posiciones antiguas.
+El ajuste al borde permite seguir alcanzando los píxeles extremos de la pantalla.
+
+Las pruebas controladas comprueban oscilaciones de un píxel en cámara con un
+recorrido del cursor de como máximo dos píxeles, rechazo de un salto aislado,
+respuesta a desplazamientos intencionales y acceso a las cuatro esquinas.
+Estos resultados no equivalen a una medición del temblor de una persona.
 
 ## Persistencia y despliegue
 
