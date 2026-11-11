@@ -43,6 +43,21 @@ Ambos recuadros cubren el monitor principal completo. El rectángulo se dibuja c
 las mismas coordenadas normalizadas que utiliza el mapeo del cursor. El video se
 ajusta completo, sin recorte, para evitar discrepancias al redimensionar la ventana.
 
+### Margen para la mano
+
+La guía interior punteada delimita el recorrido del centro de la palma que se
+mapea a la pantalla completa. Se obtiene dejando un 18 % de margen en cada borde
+del recuadro exterior. Ambas figuras conservan la proporción 16:9. La banda entre
+ellas permite que los dedos permanezcan dentro de la captura cuando la palma
+alcanza una esquina. Dentro de esa banda el cursor permanece en el extremo
+correspondiente; los gestos siguen habilitados hasta salir del recuadro exterior.
+
+El control de salida sigue usando el rectángulo exterior, mientras el mapeo usa
+la guía interior. El suavizado se ajusta al píxel extremo cuando está a menos de
+la zona muerta de ese borde, para que las esquinas sean accesibles sin un
+desplazamiento adicional. La comodidad depende del tamaño y distancia de la mano;
+esta corrección no representa una garantía de precisión del detector.
+
 ## Persistencia y despliegue
 
 `settings.gesture_control_side` admite `left` y `right`. La migración Alembic

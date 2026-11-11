@@ -47,7 +47,8 @@ class SettingsDialog(QDialog):
         body.addWidget(self.side_input)
         body.addWidget(label(
             "El recuadro horizontal 16:9 representa toda la pantalla. "
-            "Mueve la mano dentro para recorrerla. "
+            "La guía interior permite llegar a los extremos sin acercar los dedos "
+            "al borde de la cámara. "
             "Fuera del área no se ejecutan gestos. La imagen está en espejo.",
             "muted", wrap=True,
         ))

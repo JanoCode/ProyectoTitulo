@@ -24,7 +24,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ergosense.gestures.control_area import control_area
+from ergosense.gestures.control_area import control_area, cursor_area
 from ergosense.ui import icons, theme
 
 
@@ -308,6 +308,11 @@ class CameraView(QWidget):
         painter.setPen(QPen(QColor(theme.PRIMARY), 2, Qt.PenStyle.DashLine))
         painter.setBrush(Qt.BrushStyle.NoBrush)
         painter.drawRoundedRect(active, 8, 8)
+        a, b, c, d = cursor_area((x1, y1, x2, y2))
+        travel = QRectF(left + a * width, top + b * height, (c-a)*width, (d-b)*height)
+        painter.setPen(QPen(QColor("white"), 1.5, Qt.PenStyle.DotLine))
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        painter.drawRect(travel)
         self._draw_badge(painter, QPointF(active.left() + 6, active.top() + 6), "Área de acción")
 
         if self.show_tracking and self._points:

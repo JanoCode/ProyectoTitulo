@@ -89,6 +89,12 @@ El área lateral es un recuadro horizontal 16:9, equivalente al formato de panta
 soportado. Su altura se adapta a las dimensiones del video para conservar esa
 proporción tanto en el dibujo como en el reconocimiento.
 
+La guía interior punteada representa el recorrido del cursor por toda la pantalla.
+El margen entre esa guía y el recuadro exterior deja espacio para los dedos:
+no hace falta llevar el centro de la palma al borde exterior para alcanzar una
+esquina. El suavizado converge hasta el píxel extremo al mantener la mano en la
+esquina de la guía interior.
+
 Los gestos se hacen con la **palma de frente a la cámara**, partiendo de la mano abierta. El pulgar funciona como el botón izquierdo y el índice como el derecho.
 
 | Gesto | Cómo se hace | Acción |
