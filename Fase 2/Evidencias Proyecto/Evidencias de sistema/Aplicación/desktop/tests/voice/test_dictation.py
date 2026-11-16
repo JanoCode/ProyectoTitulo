@@ -143,6 +143,22 @@ def test_typing_failure_is_reported_and_does_not_stop_later_actions():
     assert runner.perform(TextInput(key="enter"))
 
 
+def test_stopping_dictation_cancels_text_already_waiting_in_executor():
+    controller, executor, *_ = setup_controller()
+    keyboard = Mock()
+    runner = ActionRunner(Mock(), keyboard=keyboard)
+    controller.set_dictation(True)
+    controller.handle_dictation("texto pendiente")
+    queued = executor.submit.call_args.args[0]
+    controller.set_dictation(False)
+    controller.set_dictation(True)
+    assert runner.perform(queued)
+    keyboard.type.assert_not_called()
+    controller.handle_dictation("texto actual")
+    assert runner.perform(executor.submit.call_args.args[0])
+    keyboard.type.assert_called_once_with("texto actual ")
+
+
 def test_audio_worker_switches_between_free_and_command_recognizers(monkeypatch, qapp):
     capture = []
     factories = []

@@ -71,6 +71,8 @@ class ActionRunner:
 
     def perform(self, action):
         if isinstance(action, TextInput):
+            if action.cancelled is not None and action.cancelled.is_set():
+                return True
             try:
                 if action.key:
                     self._press(action.key)

@@ -1,5 +1,8 @@
 """Enruta comandos validados y conserva las preferencias en el servidor."""
 
+from dataclasses import replace
+from threading import Event
+
 from PySide6.QtCore import QObject, Signal, Slot
 
 from ergosense.actions.action import Action
@@ -23,11 +26,16 @@ class VoiceController(QObject):
         self._run_macro = run_macro or (lambda text: False)
         self._set_dictation = set_dictation or (lambda active: None)
         self._dictating = False
+        self._dictation_cancelled = Event()
+        self._dictation_cancelled.set()
 
     @Slot(bool)
     def set_dictation(self, active):
         active = bool(active and self._enabled())
         if self._dictating != active:
+            self._dictation_cancelled.set()
+            if active:
+                self._dictation_cancelled = Event()
             self._dictating = active
             self._set_dictation(active)
             self.dictation_changed.emit(active)
@@ -66,7 +74,7 @@ class VoiceController(QObject):
             if not clean:
                 return
             action = TextInput(text=punctuation.get(phrase, clean + " "))
-        self._executor.submit(action)
+        self._executor.submit(replace(action, cancelled=self._dictation_cancelled))
         self._on_activity()
 
     @Slot(str)
