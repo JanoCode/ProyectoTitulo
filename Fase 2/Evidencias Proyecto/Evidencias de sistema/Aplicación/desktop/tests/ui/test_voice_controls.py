@@ -3,6 +3,24 @@
 from ergosense.ui.main_window import MainWindow
 
 
+def test_dictation_button_is_available_only_with_ready_microphone(qapp):
+    window = MainWindow()
+    assert not window.dictation_button.isEnabled()
+    window.set_voice_enabled(True)
+    window.show_voice_status("Activo · micrófono en uso")
+    requests = []
+    window.dictation_requested.connect(requests.append)
+    window.dictation_button.click()
+    assert requests == [True]
+    window.set_dictation_active(True)
+    assert window.voice_status.text() == "Dictando"
+    assert window.dictation_button.text() == "Terminar dictado"
+    window.set_voice_enabled(False)
+    assert not window.dictation_button.isChecked()
+    assert not window.dictation_button.isEnabled()
+    window.close()
+
+
 def test_los_interruptores_piden_cambios_independientes(qapp):
     window = MainWindow()
     requests = []

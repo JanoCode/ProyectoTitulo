@@ -245,8 +245,13 @@ def main():
         update_features,
         register_activity,
         run_macro=macro_controller.handle_voice,
+        set_dictation=voice.set_dictation,
     )
     voice.recognized.connect(voice_controller.handle)
+    voice.dictated.connect(voice_controller.handle_dictation)
+    voice.status_changed.connect(voice_controller.handle_status)
+    voice_controller.dictation_changed.connect(window.set_dictation_active)
+    window.dictation_requested.connect(voice_controller.set_dictation)
     window.feature_requested.connect(
         lambda key, value: update_features({key: value}, FEATURE_MESSAGES[key, value])
     )
