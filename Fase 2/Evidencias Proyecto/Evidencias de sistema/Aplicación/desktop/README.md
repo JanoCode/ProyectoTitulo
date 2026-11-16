@@ -236,6 +236,17 @@ Con el control por voz activo y el micrófono listo, decir **iniciar dictado** o
 **Dictando**, seleccionar el campo de destino con un gesto y hablar. Cada frase
 se escribe al hacer una pausa; el destino es el campo que tenga el foco.
 
+El dictado utiliza Whisper small con faster-whisper en CPU; los comandos cortos
+mantienen Vosk. La primera preparación descarga unos 486 MB en la carpeta local
+de ErgoSense, fuera del repositorio. Después funciona sin internet. El modelo de
+dictado ya instalado se reutiliza y no se descarga en cada inicio.
+
+Un único icono semitransparente de micrófono permanece arriba a la derecha sobre
+las demás aplicaciones. Ámbar significa preparación, verde escucha y azul
+transcripción. Esperar al verde para empezar. El icono no toma foco ni intercepta
+clics, y desaparece al terminar el dictado. Cada frase puede tardar unos segundos
+en aparecer; se conserva la puntuación automática que genere el reconocedor.
+
 Durante el dictado, **enviar texto** y **nueva línea** pulsan Enter;
 **borrar palabra** pulsa Ctrl+Retroceso. **Terminar dictado** o **desactivar
 dictado** vuelve al modo de comandos. Estas órdenes se dicen en frases separadas.
@@ -259,10 +270,11 @@ otras aplicaciones:
 ```powershell
 uv run python scripts/check_voice_samples.py
 uv run python scripts/check_voice_samples.py --dictation
+uv run python scripts/check_voice_samples.py --dictation-long --compare-previous
 ```
 
 Estas muestras requieren Windows y una voz SAPI en español. No reemplazan la
-validación con voz humana. Los casos de aceptación son CP-06-13 a CP-06-20.
+validación con voz humana. Los casos de aceptación son CP-06-13 a CP-06-21.
 
 ## Estructura
 
