@@ -143,6 +143,7 @@ class HelpDialog(QDialog):
         grid.setHorizontalSpacing(24)
         grid.setVerticalSpacing(0)
         _fill_grid(grid, [_command_item(phrase) for phrase in COMMANDS])
+        box.setMinimumHeight(grid.minimumSize().height() + 2)
         layout.addWidget(box)
         layout.addWidget(
             InfoBox(
