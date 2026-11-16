@@ -17,6 +17,7 @@ from ergosense.voice.recognizer import (
     DownloadCancelled,
     ModelDownloadError,
     VoiceModelMissing,
+    create_dictation_recognizer,
     create_recognizer,
     download_model,
 )
@@ -36,19 +37,24 @@ BLOCK_FRAMES = SAMPLE_RATE // 10
 
 class VoiceWorker(QObject):
     recognized = Signal(str)
+    dictated = Signal(str)
     status_changed = Signal(str)
     microphone_changed = Signal(str)  # nombre del micrófono que se está usando
     _result = Signal(int, str)
     _status = Signal(int, str)
     _microphone = Signal(int, str)
+    _scoped_result = Signal(int, int, str)
 
     def __init__(
-        self, recognizer_factory=create_recognizer, model_downloader=download_model
+        self, recognizer_factory=create_recognizer, model_downloader=download_model,
+        dictation_factory=create_dictation_recognizer,
     ):
         super().__init__()
         # En las pruebas se entregan un reconocedor y una descarga falsos.
         self._recognizer_factory = recognizer_factory
         self._model_downloader = model_downloader
+        self._dictation_factory = dictation_factory
+        self._mode = (0, False)
         # Frases de las macros activadas. Se reemplaza la tupla completa, y el hilo
         # de audio reconstruye la gramática cuando ve una nueva (arquitectura, 5.4).
         self._macro_phrases = ()
@@ -61,6 +67,24 @@ class VoiceWorker(QObject):
         self._result.connect(self._deliver_result)
         self._status.connect(self._deliver_status)
         self._microphone.connect(self._deliver_microphone)
+        self._scoped_result.connect(self._deliver_scoped_result)
+
+    def set_dictation(self, active):
+        revision, current = self._mode
+        if current != active:
+            self._mode = (revision + 1, bool(active))
+
+    @Slot(int, int, str)
+    def _deliver_scoped_result(self, generation, revision, text):
+        if (
+            generation == self._generation
+            and revision == self._mode[0]
+            and not self._stop.is_set()
+        ):
+            if self._mode[1]:
+                self.dictated.emit(text)
+            else:
+                self._result.emit(generation, text)
 
     @Slot(int, str)
     def _deliver_result(self, generation, text):
@@ -103,6 +127,7 @@ class VoiceWorker(QObject):
     def stop(self):
         """Cierra el micrófono de inmediato, sin esperar al hilo."""
         self._stop.set()
+        self.set_dictation(False)
         self._generation += 1
         stream, self._stream = self._stream, None
         if stream is not None:
@@ -117,6 +142,7 @@ class VoiceWorker(QObject):
         generation = self._generation if generation is None else generation
         stopped = self._stop if stopped is None else stopped
         applied = self._macro_phrases  # frases con las que se crea el reconocedor
+        mode = self._mode
         recognizer = self._create_recognizer(generation, stopped, applied)
         if recognizer is None:
             # Sin modelo no se abre el micrófono; el resto de ErgoSense sigue igual.
@@ -146,7 +172,20 @@ class VoiceWorker(QObject):
                 self._status.emit(generation, LISTENING)
                 while not stopped.is_set():
                     phrases = self._macro_phrases
-                    if phrases != applied:
+                    requested_mode = self._mode
+                    if requested_mode != mode:
+                        mode = requested_mode
+                        while True:
+                            try:
+                                chunks.get_nowait()
+                            except queue.Empty:
+                                break
+                        recognizer = (
+                            self._dictation_factory() if mode[1]
+                            else self._recognizer_factory(phrases)
+                        )
+                        applied = phrases
+                    elif phrases != applied and not mode[1]:
                         # Cambiaron las macros: reconocedor nuevo con la nueva lista.
                         recognizer = self._recognizer_factory(phrases)
                         applied = phrases
@@ -158,7 +197,7 @@ class VoiceWorker(QObject):
                     if recognizer.AcceptWaveform(data):
                         text = json.loads(recognizer.Result()).get("text", "")
                         if text and not stopped.is_set():
-                            self._result.emit(generation, text)
+                            self._scoped_result.emit(generation, mode[0], text)
         except (sd.PortAudioError, OSError, ValueError):
             if not stopped.is_set():
                 self._status.emit(generation, MICROPHONE_UNAVAILABLE)
