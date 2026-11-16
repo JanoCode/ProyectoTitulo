@@ -49,6 +49,7 @@ def test_commands_and_macros_are_literal_text_during_dictation(text):
     "phrase, action",
     [
         ("enviar texto", TextInput(key="enter")),
+        ("Enviar texto.", TextInput(key="enter")),
         ("nueva línea", TextInput(key="enter")),
         ("borrar palabra", TextInput(key="ctrl+backspace")),
         ("punto", TextInput(text=". ")),
@@ -73,6 +74,14 @@ def test_stop_discards_late_text_and_returns_to_commands():
     assert mode.call_args_list[-1].args == (False,)
     controller.handle("clic izquierdo")
     executor.submit.assert_called_once()
+
+
+def test_automatic_punctuation_does_not_break_stop_command():
+    controller, executor, _, _, _, mode = setup_controller()
+    controller.set_dictation(True)
+    controller.handle_dictation("¡Terminar dictado!")
+    mode.assert_called_with(False)
+    executor.submit.assert_not_called()
 
 
 @pytest.mark.parametrize("status", ["Desactivado", "Micrófono no disponible"])
@@ -123,6 +132,32 @@ def test_mode_revision_discards_queued_audio_even_after_round_trip(qapp):
     worker.stop()
     worker._deliver_scoped_result(generation, worker._mode[0], "más texto")
     assert texts == ["texto actual"]
+
+
+def test_indicator_events_from_an_old_mode_are_discarded(qapp):
+    worker = VoiceWorker()
+    states = []
+    worker.dictation_state_changed.connect(states.append)
+    worker.set_dictation(True)
+    old = worker._mode[0]
+    worker.set_dictation(False)
+    worker.set_dictation(True)
+    worker._deliver_dictation_state(worker._generation, old, "processing")
+    worker._deliver_dictation_state(worker._generation, worker._mode[0], "listening")
+    assert states == ["listening"]
+    worker.stop()
+    worker._deliver_dictation_state(worker._generation, worker._mode[0], "processing")
+    assert states == ["listening"]
+
+
+def test_loading_failure_returns_worker_to_command_mode_and_reports_it(qapp):
+    worker = VoiceWorker()
+    failures = []
+    worker.dictation_failed.connect(failures.append)
+    worker.set_dictation(True)
+    worker._fail_dictation(worker._generation, "No se pudo preparar el dictado")
+    assert worker._mode[1] is False
+    assert failures == ["No se pudo preparar el dictado"]
 
 
 def test_runner_types_unicode_and_editing_keys_without_using_clipboard():
