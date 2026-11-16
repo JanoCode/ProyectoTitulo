@@ -599,6 +599,27 @@ class MainWindow(QWidget):
         if self._voice_enabled and self.dictation_button.isEnabled():
             self.voice_status.set_status("Dictando" if active else "Escuchando", "ok")
 
+    def show_dictation_state(self, state):
+        if not self._voice_enabled or not self.dictation_button.isChecked():
+            return
+        states = {
+            "preparing": ("Preparando dictado", "waiting"),
+            "listening": ("Dictando", "ok"),
+            "processing": ("Transcribiendo", "waiting"),
+        }
+        if state in states:
+            self.voice_status.set_status(*states[state])
+        if state == "preparing":
+            self.dictation_hint.setText(
+                "Preparando el dictado. La primera vez se descarga el modelo. "
+                "Espera al micrófono verde para hablar."
+            )
+        elif state == "listening":
+            self.dictation_hint.setText(
+                "Micrófono verde: puedes dictar. Azul: transcribiendo. "
+                "Di «terminar dictado» para volver a comandos."
+            )
+
     def show_microphone(self, name):
         """Muestra el micrófono que usa la voz, el predeterminado de Windows."""
         if not self._voice_enabled or not name:

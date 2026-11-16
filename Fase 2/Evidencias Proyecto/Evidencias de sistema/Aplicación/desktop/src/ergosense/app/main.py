@@ -34,6 +34,7 @@ from ergosense.monitoring.inactivity import InactivityMonitor
 from ergosense.monitoring.input_listener import InputListener
 from ergosense.ui import icons
 from ergosense.ui.auth_dialogs import LoginDialog
+from ergosense.ui.dictation_indicator import DictationIndicator
 from ergosense.ui.macros_dialog import ApplicationsDialog, MacrosDialog
 from ergosense.ui.main_window import MainWindow
 from ergosense.ui.settings_dialog import SettingsDialog
@@ -248,6 +249,15 @@ def main():
         set_dictation=voice.set_dictation,
     )
     voice.recognized.connect(voice_controller.handle)
+    dictation_indicator = DictationIndicator()
+    voice_controller.dictation_changed.connect(dictation_indicator.set_active)
+    voice.dictation_state_changed.connect(dictation_indicator.set_state)
+    voice.dictation_state_changed.connect(window.show_dictation_state)
+    voice.dictation_failed.connect(
+        lambda message: (
+            voice_controller.set_dictation(False), window.show_toast(message, "error")
+        )
+    )
     voice.dictated.connect(voice_controller.handle_dictation)
     voice.status_changed.connect(voice_controller.handle_status)
     voice_controller.dictation_changed.connect(window.set_dictation_active)
@@ -299,6 +309,7 @@ def main():
         # cámara; después el ejecutor termina las acciones pendientes.
         gestures.stop()
         voice.stop()
+        dictation_indicator.close()
         executor.stop()
         listener.stop()
         try:
