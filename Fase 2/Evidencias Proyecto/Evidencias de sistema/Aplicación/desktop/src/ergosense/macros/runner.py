@@ -13,6 +13,7 @@ from pathlib import Path
 from pynput.keyboard import Controller, Key
 
 from ergosense.actions.action import Action
+from ergosense.actions.text import TextInput
 
 CLICKS = {
     "left": Action.LEFT_CLICK,
@@ -69,6 +70,18 @@ class ActionRunner:
         self._on_error = on_error or (lambda message: None)
 
     def perform(self, action):
+        if isinstance(action, TextInput):
+            if action.cancelled is not None and action.cancelled.is_set():
+                return True
+            try:
+                if action.key:
+                    self._press(action.key)
+                else:
+                    self._keyboard.type(action.text)
+            except (OSError, ValueError, KeyError):
+                self._on_error("No se pudo escribir. Comprueba el campo de destino.")
+                return False
+            return True
         if not isinstance(action, MacroStep):
             self._mouse.perform(action)  # click, arrastre o scroll de gestos y voz
             return

@@ -2,6 +2,14 @@
 
 Fecha: 10 de noviembre de 2026.
 
+## Ampliación del 16 de noviembre de 2026
+
+Se incorpora PB-52, escritura mediante dictado local. El alcance y las pruebas de
+esta ampliación se detallan en [Dictado por voz](Dictado%20por%20voz.md). Los casos
+CP-06-13 a CP-06-20 se añaden al Plan de pruebas y SB06-T35 a SB06-T39 al Sprint
+Backlog 06. Los resultados anteriores mantienen su fecha y alcance originales.
+La nueva aceptación con micrófono real permanece pendiente.
+
 ## Estado del incremento
 
 El Sprint 05 dispone de gestión de macros, activadores, cinco tipos de acción,

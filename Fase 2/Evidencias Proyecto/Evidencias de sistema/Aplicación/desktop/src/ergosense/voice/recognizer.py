@@ -158,3 +158,7 @@ def create_recognizer(macro_phrases=()):
     uno nuevo: tarda alrededor de 1 ms, porque el modelo ya está cargado.
     """
     return vosk.KaldiRecognizer(load_model(), SAMPLE_RATE, grammar_json(macro_phrases))
+
+
+def create_dictation_recognizer():
+    return vosk.KaldiRecognizer(load_model(), SAMPLE_RATE)

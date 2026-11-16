@@ -23,6 +23,8 @@ BASE_VOICE_COMMANDS = frozenset(
         "desactivar voz",
         "activar gestos y voz",
         "desactivar gestos y voz",
+        "iniciar dictado",
+        "activar dictado",
     }
 )
 # Gestos del Sprint 03: los que tienen una acción predefinida no sirven de activador.

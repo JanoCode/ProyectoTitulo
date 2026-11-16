@@ -229,6 +229,41 @@ Se ejecutan desde la carpeta `desktop`, por ejemplo `uv run python scripts/demo_
 7. Reiniciar la aplicación y comprobar que se mantienen las preferencias.
 8. Probar sin micrófono y sin internet: el monitoreo y los gestos deben seguir funcionando.
 
+## Escritura por voz
+
+Con el control por voz activo y el micrófono listo, decir **iniciar dictado** o
+**activar dictado**, o usar el botón **Iniciar dictado**. Esperar el estado
+**Dictando**, seleccionar el campo de destino con un gesto y hablar. Cada frase
+se escribe al hacer una pausa; el destino es el campo que tenga el foco.
+
+Durante el dictado, **enviar texto** y **nueva línea** pulsan Enter;
+**borrar palabra** pulsa Ctrl+Retroceso. **Terminar dictado** o **desactivar
+dictado** vuelve al modo de comandos. Estas órdenes se dicen en frases separadas.
+Para puntuar se puede decir **punto**, **coma**, **dos puntos**, **punto y coma**,
+**abrir interrogación** o **cerrar interrogación** en frases separadas.
+
+Los comandos de clic y las frases de macros se escriben como texto mientras se
+dicta. **Desactivar voz** sigue cerrando el micrófono. Apagar la voz, perder el
+micrófono o reiniciar cancela el dictado. El modo es temporal y no se sincroniza
+con la cuenta. El audio y las transcripciones se procesan localmente y no se
+guardan ni se envían al servidor. El modelo instalado permite dictar sin internet
+durante una sesión ya abierta.
+
+El reconocimiento puede equivocarse con palabras, nombres y puntuación. Revisar
+el resultado antes de decir **enviar texto**. No incluye transcripción de archivos
+ni otros idiomas. Utiliza el mismo modelo y las dependencias existentes.
+
+Muestras reproducibles de voz sintetizada, sin abrir el micrófono ni escribir en
+otras aplicaciones:
+
+```powershell
+uv run python scripts/check_voice_samples.py
+uv run python scripts/check_voice_samples.py --dictation
+```
+
+Estas muestras requieren Windows y una voz SAPI en español. No reemplazan la
+validación con voz humana. Los casos de aceptación son CP-06-13 a CP-06-20.
+
 ## Estructura
 
 ```text
