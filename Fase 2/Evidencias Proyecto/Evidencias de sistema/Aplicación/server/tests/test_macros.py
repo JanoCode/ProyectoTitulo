@@ -28,6 +28,15 @@ def headers(client):
     return bearer(create_account_and_token(client, "macros@example.com"))
 
 
+@pytest.mark.parametrize("phrase", ["iniciar dictado", " ACTIVAR   DICTADO "])
+def test_dictation_activation_cannot_be_assigned_to_macro(client, headers, phrase):
+    response = client.post(MACROS, headers=headers, json=macro(
+        triggers=[{"trigger_type": "VOICE", "trigger_value": phrase}]
+    ))
+    assert response.status_code == 409
+    assert client.get(MACROS, headers=headers).json() == []
+
+
 def test_cp_05_01_crea_una_macro_activada_y_la_lista(client, headers):
     created = client.post(MACROS, headers=headers, json=macro(description=" Correo "))
 
