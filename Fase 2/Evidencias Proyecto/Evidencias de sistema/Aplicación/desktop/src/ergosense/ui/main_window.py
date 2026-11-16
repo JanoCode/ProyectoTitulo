@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QMenu,
+    QScrollArea,
     QStackedWidget,
     QToolButton,
     QVBoxLayout,
@@ -92,6 +93,7 @@ class MainWindow(QWidget):
     macros_requested = Signal()  # el usuario quiere administrar sus macros (PB-38)
     feature_requested = Signal(str, bool)  # activar o desactivar gestos o voz
     camera_requested = Signal(bool)  # encender o apagar la cámara
+    dictation_requested = Signal(bool)
 
     def __init__(self, tray=None):
         super().__init__()  # prepara la parte de QWidget; va siempre primero
@@ -259,7 +261,7 @@ class MainWindow(QWidget):
     def _build_sidebar(self):
         sidebar = QFrame()
         sidebar.setObjectName("sidebar")
-        sidebar.setFixedWidth(320)
+        sidebar.setMinimumWidth(300)
         layout = QVBoxLayout(sidebar)
         layout.setContentsMargins(18, 16, 18, 16)
         layout.setSpacing(14)
@@ -301,6 +303,19 @@ class MainWindow(QWidget):
         notice.setContentsMargins(48, 0, 0, 0)
         notice.setSpacing(8)
         notice.addWidget(self.microphone_label)
+        self.dictation_button = button("Iniciar dictado", "secondary", "mic")
+        self.dictation_button.setCheckable(True)
+        self.dictation_button.setEnabled(False)
+        self.dictation_button.clicked.connect(
+            lambda checked: self.dictation_requested.emit(checked)
+        )
+        notice.addWidget(self.dictation_button)
+        self.dictation_hint = label(
+            "Di «iniciar dictado», selecciona un campo y habla. "
+            "Di «terminar dictado» para volver a los comandos.",
+            "small", wrap=True,
+        )
+        notice.addWidget(self.dictation_hint)
         notice.addWidget(voice_notice)
         layout.addLayout(notice)
         layout.addWidget(divider())
@@ -334,7 +349,13 @@ class MainWindow(QWidget):
         activity.addLayout(texts, 1)
         layout.addLayout(activity)
         layout.addStretch()
-        return sidebar
+        scroll = QScrollArea()
+        scroll.setFixedWidth(320)
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll.setWidget(sidebar)
+        return scroll
 
     def _build_status_bar(self):
         bar = QFrame()
@@ -440,6 +461,10 @@ class MainWindow(QWidget):
             # Al reintentar, la tarjeta deja de decir "Cámara no disponible".
             self._show_hand_status()
 
+    def set_control_side(self, side):
+        self.camera_view.control_side = side
+        self.camera_view.update()
+
     def show_frame(self, image, points):
         """Recibe un cuadro del hilo de gestos para la vista previa."""
         if self._camera_state not in ("starting", "on"):
@@ -534,6 +559,8 @@ class MainWindow(QWidget):
         self._voice_enabled = enabled
         self.voice_toggle.set_checked_silently(enabled)
         if not enabled:
+            self.set_dictation_active(False)
+            self.dictation_button.setEnabled(False)
             self.voice_status.set_status("Desactivado", "off")
             self.mic_indicator.hide()
             self.microphone_label.hide()
@@ -545,6 +572,9 @@ class MainWindow(QWidget):
             status, (status, "waiting", False)
         )
         self.voice_status.set_status(text, state)
+        self.dictation_button.setEnabled(microphone_in_use)
+        if not microphone_in_use:
+            self.set_dictation_active(False)
         self.mic_indicator.setVisible(microphone_in_use)
         downloading = status.startswith(VOICE_DOWNLOADING)
         detail = VOICE_DETAILS.get(VOICE_DOWNLOADING if downloading else status)
@@ -554,6 +584,41 @@ class MainWindow(QWidget):
         elif not microphone_in_use:
             # El nombre del micrófono solo se muestra mientras se escucha.
             self.microphone_label.hide()
+
+    def set_dictation_active(self, active):
+        self.dictation_button.setChecked(active)
+        self.dictation_button.setText("Terminar dictado" if active else "Iniciar dictado")
+        self.dictation_hint.setText(
+            "Dictado activo: se escribe en el campo seleccionado. "
+            "«Enviar texto»: Enter · «Borrar palabra»: corregir · "
+            "«Terminar dictado»: volver a comandos."
+            if active else
+            "Di «iniciar dictado», selecciona un campo y habla. "
+            "Di «terminar dictado» para volver a los comandos."
+        )
+        if self._voice_enabled and self.dictation_button.isEnabled():
+            self.voice_status.set_status("Dictando" if active else "Escuchando", "ok")
+
+    def show_dictation_state(self, state):
+        if not self._voice_enabled or not self.dictation_button.isChecked():
+            return
+        states = {
+            "preparing": ("Preparando dictado", "waiting"),
+            "listening": ("Dictando", "ok"),
+            "processing": ("Transcribiendo", "waiting"),
+        }
+        if state in states:
+            self.voice_status.set_status(*states[state])
+        if state == "preparing":
+            self.dictation_hint.setText(
+                "Preparando el dictado. La primera vez se descarga el modelo. "
+                "Espera al micrófono verde para hablar."
+            )
+        elif state == "listening":
+            self.dictation_hint.setText(
+                "Micrófono verde: puedes dictar. Azul: transcribiendo. "
+                "Di «terminar dictado» para volver a comandos."
+            )
 
     def show_microphone(self, name):
         """Muestra el micrófono que usa la voz, el predeterminado de Windows."""

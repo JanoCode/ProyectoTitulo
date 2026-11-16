@@ -34,6 +34,7 @@ from ergosense.monitoring.inactivity import InactivityMonitor
 from ergosense.monitoring.input_listener import InputListener
 from ergosense.ui import icons
 from ergosense.ui.auth_dialogs import LoginDialog
+from ergosense.ui.dictation_indicator import DictationIndicator
 from ergosense.ui.macros_dialog import ApplicationsDialog, MacrosDialog
 from ergosense.ui.main_window import MainWindow
 from ergosense.ui.settings_dialog import SettingsDialog
@@ -110,7 +111,10 @@ def main():
             )
 
     pending = PendingQueue(
-        api_client.check_connection, time.monotonic, connection_changed
+        api_client.check_connection, time.monotonic, connection_changed,
+        on_rejected=lambda error: window.show_toast(
+            f"El servidor rechazó un registro pendiente: {error}", "error"
+        ),
     )
     remote_session = RemoteUsageSession(api_client, queue=pending)
     remote_session.start()
@@ -139,7 +143,12 @@ def main():
     runner = ActionRunner(
         mouse, on_error=lambda message: macro_controller.report_error(message)
     )
-    executor = ActionExecutor(runner.perform)
+    executor = ActionExecutor(
+        runner.perform,
+        on_error=lambda error: macro_controller.report_error(
+            "No se pudo ejecutar la acción. Comprueba la aplicación de destino."
+        ),
+    )
     executor.start()
     gestures = GestureWorker(
         Camera(),
@@ -237,8 +246,22 @@ def main():
         update_features,
         register_activity,
         run_macro=macro_controller.handle_voice,
+        set_dictation=voice.set_dictation,
     )
     voice.recognized.connect(voice_controller.handle)
+    dictation_indicator = DictationIndicator()
+    voice_controller.dictation_changed.connect(dictation_indicator.set_active)
+    voice.dictation_state_changed.connect(dictation_indicator.set_state)
+    voice.dictation_state_changed.connect(window.show_dictation_state)
+    voice.dictation_failed.connect(
+        lambda message: (
+            voice_controller.set_dictation(False), window.show_toast(message, "error")
+        )
+    )
+    voice.dictated.connect(voice_controller.handle_dictation)
+    voice.status_changed.connect(voice_controller.handle_status)
+    voice_controller.dictation_changed.connect(window.set_dictation_active)
+    window.dictation_requested.connect(voice_controller.set_dictation)
     window.feature_requested.connect(
         lambda key, value: update_features({key: value}, FEATURE_MESSAGES[key, value])
     )
@@ -286,6 +309,7 @@ def main():
         # cámara; después el ejecutor termina las acciones pendientes.
         gestures.stop()
         voice.stop()
+        dictation_indicator.close()
         executor.stop()
         listener.stop()
         try:

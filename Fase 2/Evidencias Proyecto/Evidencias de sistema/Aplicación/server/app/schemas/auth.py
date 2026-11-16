@@ -2,6 +2,7 @@
 
 import re
 from datetime import datetime
+from typing import Literal
 
 from email_validator import EmailNotValidError, validate_email
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -89,6 +90,7 @@ class SettingResponse(BaseModel):
     inactivity_break_minutes: int
     voice_enabled: bool
     gesture_enabled: bool
+    gesture_control_side: Literal["left", "right"] = "right"
 
 
 class SettingUpdateRequest(BaseModel):
@@ -107,6 +109,7 @@ class SettingUpdateRequest(BaseModel):
     inactivity_break_minutes: int = Field(default=None, gt=0, strict=True)
     voice_enabled: bool = Field(default=None, strict=True)
     gesture_enabled: bool = Field(default=None, strict=True)
+    gesture_control_side: Literal["left", "right"] = Field(default=None)
 
     @model_validator(mode="after")
     def require_a_change(self):

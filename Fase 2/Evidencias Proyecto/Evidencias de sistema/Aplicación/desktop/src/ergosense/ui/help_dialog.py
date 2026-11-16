@@ -39,6 +39,7 @@ def _fill_grid(grid, items):
     for index, item in enumerate(items):
         row, column = divmod(index, 2)
         item.setContentsMargins(4, 10, 4, 10)
+        item.setMinimumHeight(max(44, item.sizeHint().height()))
         grid.addWidget(item, row * 2, column)
         if column == 0:
             grid.addWidget(divider(), row * 2 + 1, 0, 1, 2)
@@ -75,6 +76,8 @@ class HelpDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("Ayuda")
         self.setMinimumWidth(600)
+        self.setMinimumHeight(720)
+        self.resize(640, 760)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -142,7 +145,20 @@ class HelpDialog(QDialog):
         grid.setHorizontalSpacing(24)
         grid.setVerticalSpacing(0)
         _fill_grid(grid, [_command_item(phrase) for phrase in COMMANDS])
+        box.setMinimumHeight(grid.minimumSize().height() + 2)
         layout.addWidget(box)
+        layout.addWidget(
+            InfoBox(
+                "Dictado: di «iniciar dictado», selecciona el campo de destino con "
+                "un gesto y habla. Las frases se escriben al hacer una pausa. "
+                "Di «terminar dictado» para regresar a los comandos. "
+                "En dictado: «enviar texto» o «nueva línea» pulsan Enter; "
+                "«borrar palabra» pulsa Ctrl+Retroceso. Para puntuación, di "
+                "«punto», «coma», «dos puntos», «punto y coma», "
+                "«abrir interrogación» o «cerrar interrogación» en una frase separada. "
+                "Los comandos de clic y las macros de voz no se ejecutan al dictar."
+            )
+        )
         layout.addSpacing(8)
         layout.addWidget(
             InfoBox(

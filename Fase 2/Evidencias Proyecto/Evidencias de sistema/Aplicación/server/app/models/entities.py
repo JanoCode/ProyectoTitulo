@@ -63,6 +63,9 @@ class Setting(Base):
     """Preferencias únicas de un usuario."""
 
     __tablename__ = "settings"
+    __table_args__ = (
+        CheckConstraint("gesture_control_side IN ('left', 'right')", name="valid_gesture_control_side"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(
@@ -87,6 +90,9 @@ class Setting(Base):
         nullable=False,
         default=True,
         server_default=text("true"),
+    )
+    gesture_control_side: Mapped[str] = mapped_column(
+        String(5), nullable=False, default="right", server_default=text("'right'")
     )
 
     user: Mapped[User] = relationship(back_populates="settings")

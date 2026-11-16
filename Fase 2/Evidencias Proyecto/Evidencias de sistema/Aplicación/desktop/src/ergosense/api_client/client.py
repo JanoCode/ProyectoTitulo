@@ -239,8 +239,11 @@ class ApiClient:
             )
         if response.is_error:
             try:
-                detail = response.json().get("detail")
+                payload = response.json()
+                detail = payload.get("detail") if isinstance(payload, dict) else None
             except ValueError:
+                detail = None
+            if not isinstance(detail, str):
                 detail = None
             raise ApiClientError(
                 detail or "El servidor no pudo completar la operación.",
@@ -248,4 +251,7 @@ class ApiClient:
             )
         if not response.content:
             return {}
-        return response.json()
+        try:
+            return response.json()
+        except ValueError as error:
+            raise ApiClientError("El servidor devolvió una respuesta no válida.") from error

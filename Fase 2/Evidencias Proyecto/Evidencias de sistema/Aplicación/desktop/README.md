@@ -85,6 +85,21 @@ La ventana principal muestra:
 
 ## Control mediante gestos
 
+El área lateral es un recuadro horizontal 16:9, equivalente al formato de pantalla
+soportado. Su altura se adapta a las dimensiones del video para conservar esa
+proporción tanto en el dibujo como en el reconocimiento.
+
+La guía interior punteada representa el recorrido del cursor por toda la pantalla.
+El margen entre esa guía y el recuadro exterior deja espacio para los dedos:
+no hace falta llevar el centro de la palma al borde exterior para alcanzar una
+esquina. El suavizado converge hasta el píxel extremo al mantener la mano en la
+esquina de la guía interior.
+
+El recorrido útil se amplió para reducir la sensibilidad. El cursor aplica un
+filtro de tres cuadros y suavizado adaptativo: los movimientos pequeños se
+amortiguan más y los grandes responden con mayor rapidez. Esto reduce el temblor
+y los saltos aislados de detección sin cambiar los gestos de clic o arrastre.
+
 Los gestos se hacen con la **palma de frente a la cámara**, partiendo de la mano abierta. El pulgar funciona como el botón izquierdo y el índice como el derecho.
 
 | Gesto | Cómo se hace | Acción |
@@ -95,7 +110,11 @@ Los gestos se hacen con la **palma de frente a la cámara**, partiendo de la man
 | Dos dedos | Índice y medio estirados, el resto doblado | Scroll: subir o bajar la mano. |
 | Puño y "L" | Todos los dedos doblados, o índice y pulgar en "L" | Sin acción predefinida: activan las macros que los usen. |
 
-El cursor sigue el centro de la palma, que no se mueve al doblar el pulgar o el índice, y se mueve solo dentro del monitor principal. Para evitar activaciones accidentales (PB-13), un gesto debe mantenerse unos 0,1 s para contar, cada click se ejecuta una sola vez y las poses que no corresponden a un gesto no hacen nada.
+El cursor sigue el centro de la palma dentro del recuadro lateral «Área de acción», que representa todo el monitor principal. No es necesario cruzar la mano por delante de la cara: el borde izquierdo del recuadro corresponde al extremo izquierdo de la pantalla y el derecho al extremo derecho. En Configuración se elige el lado derecho o izquierdo de la imagen en espejo; el lado elegido se guarda en la cuenta.
+
+Fuera del recuadro no se mueve el cursor ni se ejecutan clics, scroll o macros de gesto. Al salir se cancela un clic pendiente y se libera cualquier arrastre. Al volver a entrar se exige otra vez un gesto estable. La voz y el monitoreo continúan funcionando. La vista muestra la imagen completa, con bandas si hacen falta, para que el recuadro visible coincida con el área reconocida.
+
+Para evitar activaciones accidentales (PB-13), un gesto debe mantenerse unos 0,1 s para contar, cada click se ejecuta una sola vez y las poses que no corresponden a un gesto no hacen nada.
 
 Los umbrales de cada gesto están en `src/ergosense/gestures/classifier.py` y se calibraron con una mano real. Para calibrarlos con otra mano, ejecuta `uv run python scripts/calibrate_gestures.py`, sigue las instrucciones en pantalla y ajusta las constantes con los valores que muestra.
 
@@ -209,6 +228,53 @@ Se ejecutan desde la carpeta `desktop`, por ejemplo `uv run python scripts/demo_
 6. Apagar la voz y comprobar que hablar ya no ejecuta acciones ni usa el micrófono.
 7. Reiniciar la aplicación y comprobar que se mantienen las preferencias.
 8. Probar sin micrófono y sin internet: el monitoreo y los gestos deben seguir funcionando.
+
+## Escritura por voz
+
+Con el control por voz activo y el micrófono listo, decir **iniciar dictado** o
+**activar dictado**, o usar el botón **Iniciar dictado**. Esperar el estado
+**Dictando**, seleccionar el campo de destino con un gesto y hablar. Cada frase
+se escribe al hacer una pausa; el destino es el campo que tenga el foco.
+
+El dictado utiliza Whisper small con faster-whisper en CPU; los comandos cortos
+mantienen Vosk. La primera preparación descarga unos 486 MB en la carpeta local
+de ErgoSense, fuera del repositorio. Después funciona sin internet. El modelo de
+dictado ya instalado se reutiliza y no se descarga en cada inicio.
+
+Un único icono semitransparente de micrófono permanece arriba a la derecha sobre
+las demás aplicaciones. Ámbar significa preparación, verde escucha y azul
+transcripción. Esperar al verde para empezar. El icono no toma foco ni intercepta
+clics, y desaparece al terminar el dictado. Cada frase puede tardar unos segundos
+en aparecer; se conserva la puntuación automática que genere el reconocedor.
+
+Durante el dictado, **enviar texto** y **nueva línea** pulsan Enter;
+**borrar palabra** pulsa Ctrl+Retroceso. **Terminar dictado** o **desactivar
+dictado** vuelve al modo de comandos. Estas órdenes se dicen en frases separadas.
+Para puntuar se puede decir **punto**, **coma**, **dos puntos**, **punto y coma**,
+**abrir interrogación** o **cerrar interrogación** en frases separadas.
+
+Los comandos de clic y las frases de macros se escriben como texto mientras se
+dicta. **Desactivar voz** sigue cerrando el micrófono. Apagar la voz, perder el
+micrófono o reiniciar cancela el dictado. El modo es temporal y no se sincroniza
+con la cuenta. El audio y las transcripciones se procesan localmente y no se
+guardan ni se envían al servidor. El modelo instalado permite dictar sin internet
+durante una sesión ya abierta.
+
+El reconocimiento puede equivocarse con palabras, nombres y puntuación. Revisar
+el resultado antes de decir **enviar texto**. No incluye transcripción de archivos
+ni otros idiomas. Utiliza el mismo modelo y las dependencias existentes.
+
+Muestras reproducibles de voz sintetizada, sin abrir el micrófono ni escribir en
+otras aplicaciones:
+
+```powershell
+uv run python scripts/check_voice_samples.py
+uv run python scripts/check_voice_samples.py --dictation
+uv run python scripts/check_voice_samples.py --dictation-long --compare-previous
+```
+
+Estas muestras requieren Windows y una voz SAPI en español. No reemplazan la
+validación con voz humana. Los casos de aceptación son CP-06-13 a CP-06-21.
 
 ## Estructura
 

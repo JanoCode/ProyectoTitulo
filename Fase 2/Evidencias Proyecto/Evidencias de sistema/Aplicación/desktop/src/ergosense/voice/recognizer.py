@@ -158,3 +158,12 @@ def create_recognizer(macro_phrases=()):
     uno nuevo: tarda alrededor de 1 ms, porque el modelo ya está cargado.
     """
     return vosk.KaldiRecognizer(load_model(), SAMPLE_RATE, grammar_json(macro_phrases))
+
+
+def create_dictation_recognizer():
+    from ergosense.voice.dictation import DictationRecognizer
+
+    try:
+        return DictationRecognizer()
+    except Exception as error:
+        raise RuntimeError("No se pudo preparar el modelo de dictado.") from error

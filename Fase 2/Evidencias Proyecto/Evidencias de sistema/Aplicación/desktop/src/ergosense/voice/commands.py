@@ -17,6 +17,8 @@ COMMANDS = MappingProxyType(
         "desactivar voz": "voice_off",
         "activar gestos y voz": "both_on",
         "desactivar gestos y voz": "both_off",
+        "iniciar dictado": "dictation_on",
+        "activar dictado": "dictation_on",
     }
 )
 

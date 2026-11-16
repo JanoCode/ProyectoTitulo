@@ -8,13 +8,17 @@ authors = [
 ]
 requires-python = ">=3.12"
 dependencies = [
+    "faster-whisper>=1.2,<2",
     "httpx>=0.28,<1",
+    "huggingface-hub>=0.34,<3",
     "keyring>=25,<26",
     "mediapipe>=1.1,<2",
+    "numpy>=2,<3",
     "pynput>=1.8.2",
     "pyside6>=6.11.2",
     "sounddevice>=0.5,<1",
     "vosk>=0.3.45,<0.4",
+    "webrtcvad-wheels>=2.0,<3",
 ]
 
 [project.scripts]

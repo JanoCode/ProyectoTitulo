@@ -15,6 +15,9 @@ class FakeGestures:
     def set_actions_enabled(self, enabled):
         self.actions_enabled = enabled
 
+    def set_control_side(self, side):
+        self.control_side = side
+
     def start(self):
         self.running = True
         self.starts += 1
@@ -40,6 +43,9 @@ class FakeWindow:
 
     def show_camera_starting(self):
         self.camera = "starting"
+
+    def set_control_side(self, side):
+        self.control_side = side
 
     def show_camera_off(self):
         self.camera = "off"

@@ -1,8 +1,8 @@
 """Captura de audio y reconocimiento de comandos fuera del hilo de la interfaz.
 
-El reconocimiento usa Vosk y funciona sin internet: el audio del micrófono se
+Los comandos usan Vosk y el dictado usa Whisper; el audio del micrófono se
 procesa en este equipo, por bloques de 0,1 s, y nunca se guarda ni se envía a otro
-servicio (RNF-17). Solo la primera vez se usa internet, para descargar el modelo.
+servicio (RNF-17). Solo la primera descarga de cada modelo necesita internet.
 """
 
 import json
@@ -17,6 +17,7 @@ from ergosense.voice.recognizer import (
     DownloadCancelled,
     ModelDownloadError,
     VoiceModelMissing,
+    create_dictation_recognizer,
     create_recognizer,
     download_model,
 )
@@ -36,19 +37,28 @@ BLOCK_FRAMES = SAMPLE_RATE // 10
 
 class VoiceWorker(QObject):
     recognized = Signal(str)
+    dictated = Signal(str)
+    dictation_state_changed = Signal(str)
+    dictation_failed = Signal(str)
     status_changed = Signal(str)
     microphone_changed = Signal(str)  # nombre del micrófono que se está usando
     _result = Signal(int, str)
     _status = Signal(int, str)
     _microphone = Signal(int, str)
+    _scoped_result = Signal(int, int, str)
+    _dictation_state = Signal(int, int, str)
+    _dictation_failure = Signal(int, int, str)
 
     def __init__(
-        self, recognizer_factory=create_recognizer, model_downloader=download_model
+        self, recognizer_factory=create_recognizer, model_downloader=download_model,
+        dictation_factory=create_dictation_recognizer,
     ):
         super().__init__()
         # En las pruebas se entregan un reconocedor y una descarga falsos.
         self._recognizer_factory = recognizer_factory
         self._model_downloader = model_downloader
+        self._dictation_factory = dictation_factory
+        self._mode = (0, False)
         # Frases de las macros activadas. Se reemplaza la tupla completa, y el hilo
         # de audio reconstruye la gramática cuando ve una nueva (arquitectura, 5.4).
         self._macro_phrases = ()
@@ -61,6 +71,45 @@ class VoiceWorker(QObject):
         self._result.connect(self._deliver_result)
         self._status.connect(self._deliver_status)
         self._microphone.connect(self._deliver_microphone)
+        self._scoped_result.connect(self._deliver_scoped_result)
+        self._dictation_state.connect(self._deliver_dictation_state)
+        self._dictation_failure.connect(self._deliver_dictation_failure)
+
+    @Slot(int, int, str)
+    def _deliver_dictation_state(self, generation, revision, state):
+        if (generation == self._generation and revision == self._mode[0]
+                and self._mode[1] and not self._stop.is_set()):
+            self.dictation_state_changed.emit(state)
+
+    @Slot(int, int, str)
+    def _deliver_dictation_failure(self, generation, revision, message):
+        if (generation == self._generation and revision == self._mode[0]
+                and not self._stop.is_set()):
+            self.dictation_failed.emit(message)
+
+    def _fail_dictation(self, generation, message, mode=None):
+        if mode is not None and (mode != self._mode or generation != self._generation):
+            return
+        revision = self._mode[0] + 1
+        self._mode = (revision, False)
+        self._dictation_failure.emit(generation, revision, message)
+
+    def set_dictation(self, active):
+        revision, current = self._mode
+        if current != active:
+            self._mode = (revision + 1, bool(active))
+
+    @Slot(int, int, str)
+    def _deliver_scoped_result(self, generation, revision, text):
+        if (
+            generation == self._generation
+            and revision == self._mode[0]
+            and not self._stop.is_set()
+        ):
+            if self._mode[1]:
+                self.dictated.emit(text)
+            else:
+                self._result.emit(generation, text)
 
     @Slot(int, str)
     def _deliver_result(self, generation, text):
@@ -103,6 +152,7 @@ class VoiceWorker(QObject):
     def stop(self):
         """Cierra el micrófono de inmediato, sin esperar al hilo."""
         self._stop.set()
+        self.set_dictation(False)
         self._generation += 1
         stream, self._stream = self._stream, None
         if stream is not None:
@@ -117,19 +167,29 @@ class VoiceWorker(QObject):
         generation = self._generation if generation is None else generation
         stopped = self._stop if stopped is None else stopped
         applied = self._macro_phrases  # frases con las que se crea el reconocedor
+        mode = self._mode
         recognizer = self._create_recognizer(generation, stopped, applied)
         if recognizer is None:
             # Sin modelo no se abre el micrófono; el resto de ErgoSense sigue igual.
             return
 
-        chunks = queue.Queue(maxsize=50)
+        chunks = queue.Queue(maxsize=150)
+        overflow = threading.Event()
 
         def capture(data, frames, timing, status):
             if not stopped.is_set():
                 try:
                     chunks.put_nowait(bytes(data))
                 except queue.Full:
-                    pass  # si el reconocimiento se atrasa, se pierde ese bloque
+                    overflow.set()
+
+        def clear_audio():
+            while True:
+                try:
+                    chunks.get_nowait()
+                except queue.Empty:
+                    break
+            overflow.clear()
 
         try:
             with sd.RawInputStream(
@@ -146,19 +206,58 @@ class VoiceWorker(QObject):
                 self._status.emit(generation, LISTENING)
                 while not stopped.is_set():
                     phrases = self._macro_phrases
-                    if phrases != applied:
+                    requested_mode = self._mode
+                    if requested_mode != mode:
+                        mode = requested_mode
+                        clear_audio()
+                        if mode[1]:
+                            self._dictation_state.emit(generation, mode[0], "preparing")
+                            try:
+                                recognizer = self._dictation_factory()
+                            except (OSError, RuntimeError, ValueError):
+                                self._fail_dictation(generation,
+                                    "No se pudo preparar el dictado. Comprueba la conexión "
+                                    "para descargar el modelo la primera vez y reintenta.", mode)
+                                continue
+                            if hasattr(recognizer, "set_state_callback"):
+                                revision = mode[0]
+                                recognizer.set_state_callback(
+                                    lambda state, revision=revision:
+                                    self._dictation_state.emit(generation, revision, state)
+                                )
+                            clear_audio()
+                            self._dictation_state.emit(generation, mode[0], "listening")
+                        else:
+                            recognizer = self._recognizer_factory(phrases)
+                        applied = phrases
+                    elif phrases != applied and not mode[1]:
                         # Cambiaron las macros: reconocedor nuevo con la nueva lista.
                         recognizer = self._recognizer_factory(phrases)
                         applied = phrases
+                    if overflow.is_set():
+                        clear_audio()
+                        if mode[1]:
+                            self._fail_dictation(generation,
+                                "El dictado se atrasó y se detuvo para no escribir "
+                                "una frase incompleta. Vuelve a iniciarlo.", mode)
+                        else:
+                            recognizer = self._recognizer_factory(phrases)
+                        continue
                     try:
                         data = chunks.get(timeout=0.25)
                     except queue.Empty:
                         continue
                     # True cuando termina una frase, al detectar el silencio siguiente.
-                    if recognizer.AcceptWaveform(data):
-                        text = json.loads(recognizer.Result()).get("text", "")
-                        if text and not stopped.is_set():
-                            self._result.emit(generation, text)
+                    try:
+                        if recognizer.AcceptWaveform(data):
+                            text = json.loads(recognizer.Result()).get("text", "")
+                            if text and not stopped.is_set():
+                                self._scoped_result.emit(generation, mode[0], text)
+                    except (OSError, RuntimeError, ValueError):
+                        if not mode[1]:
+                            raise
+                        self._fail_dictation(generation,
+                            "No se pudo transcribir la frase. Vuelve a iniciar el dictado.", mode)
         except (sd.PortAudioError, OSError, ValueError):
             if not stopped.is_set():
                 self._status.emit(generation, MICROPHONE_UNAVAILABLE)
