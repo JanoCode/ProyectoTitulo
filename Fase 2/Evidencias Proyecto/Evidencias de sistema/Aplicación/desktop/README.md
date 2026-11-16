@@ -85,6 +85,21 @@ La ventana principal muestra:
 
 ## Control mediante gestos
 
+El área lateral es un recuadro horizontal 16:9, equivalente al formato de pantalla
+soportado. Su altura se adapta a las dimensiones del video para conservar esa
+proporción tanto en el dibujo como en el reconocimiento.
+
+La guía interior punteada representa el recorrido del cursor por toda la pantalla.
+El margen entre esa guía y el recuadro exterior deja espacio para los dedos:
+no hace falta llevar el centro de la palma al borde exterior para alcanzar una
+esquina. El suavizado converge hasta el píxel extremo al mantener la mano en la
+esquina de la guía interior.
+
+El recorrido útil se amplió para reducir la sensibilidad. El cursor aplica un
+filtro de tres cuadros y suavizado adaptativo: los movimientos pequeños se
+amortiguan más y los grandes responden con mayor rapidez. Esto reduce el temblor
+y los saltos aislados de detección sin cambiar los gestos de clic o arrastre.
+
 Los gestos se hacen con la **palma de frente a la cámara**, partiendo de la mano abierta. El pulgar funciona como el botón izquierdo y el índice como el derecho.
 
 | Gesto | Cómo se hace | Acción |
@@ -95,7 +110,11 @@ Los gestos se hacen con la **palma de frente a la cámara**, partiendo de la man
 | Dos dedos | Índice y medio estirados, el resto doblado | Scroll: subir o bajar la mano. |
 | Puño y "L" | Todos los dedos doblados, o índice y pulgar en "L" | Sin acción predefinida: activan las macros que los usen. |
 
-El cursor sigue el centro de la palma, que no se mueve al doblar el pulgar o el índice, y se mueve solo dentro del monitor principal. Para evitar activaciones accidentales (PB-13), un gesto debe mantenerse unos 0,1 s para contar, cada click se ejecuta una sola vez y las poses que no corresponden a un gesto no hacen nada.
+El cursor sigue el centro de la palma dentro del recuadro lateral «Área de acción», que representa todo el monitor principal. No es necesario cruzar la mano por delante de la cara: el borde izquierdo del recuadro corresponde al extremo izquierdo de la pantalla y el derecho al extremo derecho. En Configuración se elige el lado derecho o izquierdo de la imagen en espejo; el lado elegido se guarda en la cuenta.
+
+Fuera del recuadro no se mueve el cursor ni se ejecutan clics, scroll o macros de gesto. Al salir se cancela un clic pendiente y se libera cualquier arrastre. Al volver a entrar se exige otra vez un gesto estable. La voz y el monitoreo continúan funcionando. La vista muestra la imagen completa, con bandas si hacen falta, para que el recuadro visible coincida con el área reconocida.
+
+Para evitar activaciones accidentales (PB-13), un gesto debe mantenerse unos 0,1 s para contar, cada click se ejecuta una sola vez y las poses que no corresponden a un gesto no hacen nada.
 
 Los umbrales de cada gesto están en `src/ergosense/gestures/classifier.py` y se calibraron con una mano real. Para calibrarlos con otra mano, ejecuta `uv run python scripts/calibrate_gestures.py`, sigue las instrucciones en pantalla y ajusta las constantes con los valores que muestra.
 

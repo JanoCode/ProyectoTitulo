@@ -35,6 +35,9 @@ class PreferencesController:
         # El nuevo tiempo cuenta para las pausas siguientes; el aviso de 60 minutos no
         # depende de esta configuración (PB-37).
         self._inactivity.set_limit_seconds(seconds)
+        side = settings.get("gesture_control_side", "right")
+        self._gestures.set_control_side(side)
+        self._window.set_control_side(side)
         if self._voice is not None:
             self._window.set_voice_enabled(settings["voice_enabled"])
             if settings["voice_enabled"]:

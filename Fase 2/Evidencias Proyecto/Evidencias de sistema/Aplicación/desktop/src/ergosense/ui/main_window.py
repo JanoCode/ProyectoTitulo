@@ -440,6 +440,10 @@ class MainWindow(QWidget):
             # Al reintentar, la tarjeta deja de decir "Cámara no disponible".
             self._show_hand_status()
 
+    def set_control_side(self, side):
+        self.camera_view.control_side = side
+        self.camera_view.update()
+
     def show_frame(self, image, points):
         """Recibe un cuadro del hilo de gestos para la vista previa."""
         if self._camera_state not in ("starting", "on"):
