@@ -49,7 +49,7 @@ class VoiceController(QObject):
     def handle_dictation(self, text):
         if not self._enabled() or not self._dictating:
             return
-        phrase = normalize(text)
+        phrase = normalize(text).strip(" .,!¡?¿:;\"'«»")
         if phrase in {"terminar dictado", "desactivar dictado"}:
             self.set_dictation(False)
             return

@@ -161,4 +161,9 @@ def create_recognizer(macro_phrases=()):
 
 
 def create_dictation_recognizer():
-    return vosk.KaldiRecognizer(load_model(), SAMPLE_RATE)
+    from ergosense.voice.dictation import DictationRecognizer
+
+    try:
+        return DictationRecognizer()
+    except Exception as error:
+        raise RuntimeError("No se pudo preparar el modelo de dictado.") from error
