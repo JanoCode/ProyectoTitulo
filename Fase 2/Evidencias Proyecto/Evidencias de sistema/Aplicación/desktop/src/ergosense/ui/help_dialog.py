@@ -76,6 +76,8 @@ class HelpDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("Ayuda")
         self.setMinimumWidth(600)
+        self.setMinimumHeight(720)
+        self.resize(640, 760)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
