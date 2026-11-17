@@ -1,10 +1,10 @@
-"""Acciones discretas del mouse que pueden pedir los gestos y, más adelante, la voz."""
+"""Acciones discretas de teclado y ratón solicitadas por los reconocedores."""
 
 from enum import StrEnum
 
 
 class Action(StrEnum):
-    """Una acción puntual sobre el mouse, en la posición actual del cursor."""
+    """Una acción puntual sobre el campo o la posición que tiene el foco."""
 
     LEFT_CLICK = "left_click"
     LEFT_DOWN = "left_down"  # inicio del arrastre: presiona sin soltar
