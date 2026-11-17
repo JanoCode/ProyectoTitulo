@@ -20,6 +20,14 @@ Para conectarte desde internet, utiliza un servidor publicado con HTTPS.
 127.0.0.1 siempre significa el computador donde estás abriendo la aplicación.
 
 USO
+Para confirmar una búsqueda o enviar el texto, espera a que aparezca y haz OK:
+une las puntas del pulgar y el índice con los otros tres dedos extendidos,
+dentro del área de acción. Mantén 0,35 segundos para pulsar Enter una vez.
+Abre de nuevo la mano antes de repetir. Enter actúa sobre el campo con foco.
+
+En Configuración puedes elegir el micrófono para voz y dictado. Si aparece un
+aviso de señal baja o saturada, revisa la distancia y el volumen de entrada.
+
 El indicador flotante muestra gestos, voz y el estado del dictado aunque la
 ventana principal esté minimizada. "Escuchando" confirma que puedes dictar;
 "Preparando" indica que el modelo todavía se está cargando y "Procesando" que

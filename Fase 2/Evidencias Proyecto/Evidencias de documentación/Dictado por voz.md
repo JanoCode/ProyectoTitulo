@@ -15,7 +15,8 @@ en el campo que tenga el foco; no se buscan ni seleccionan campos automáticamen
 4. Dictar una frase y hacer una pausa. Cada frase termina con un espacio para
    poder continuar la oración.
 5. Decir **borrar palabra** para pulsar Ctrl+Retroceso si hace falta corregir.
-6. Revisar el texto. **Enviar texto** pulsa Enter; por ejemplo, realiza una búsqueda
+6. Revisar el texto. El gesto **OK** mantenido confirma con Enter;
+   [ver su uso](Confirmaci%C3%B3n%20con%20Enter.md). **Enviar texto** también pulsa Enter; por ejemplo, realiza una búsqueda
    en un buscador. Su efecto depende de la aplicación de destino.
 7. Decir **terminar dictado** o **desactivar dictado** para volver a comandos.
 
@@ -32,20 +33,32 @@ desactivación. Con el micrófono apagado, la voz se reactiva desde el interrupt
 
 ## Implementación
 
-`voice/recognizer.py` mantiene Vosk para los comandos cortos. El dictado utiliza
-Whisper small mediante [faster-whisper](https://github.com/SYSTRAN/faster-whisper),
-con español fijo, CPU int8 y cuatro hilos. `voice/dictation.py` utiliza WebRTC VAD
-para distinguir voz y silencio en cuadros de 20 ms. Termina una frase después de
-700 ms de silencio y limita cada segmento a 12 segundos. No reutiliza el texto
-anterior como contexto de la siguiente transcripción. Las órdenes de edición se
-validan ignorando la puntuación automática de sus extremos.
+`voice/recognizer.py` mantiene Vosk para comandos cortos. El dictado utiliza
+large-v3-turbo mediante faster-whisper, con español fijo. Se conserva el modelo
+local de la revisión `0a363e9161cbc7ed1431c9597a8ceaf0c4f78fcf` de
+`mobiuslabsgmbh/faster-whisper-large-v3-turbo`, incluido en el catálogo del motor.
+Ocupa aproximadamente 1,62 GB en
+`%LOCALAPPDATA%/ErgoSense/models/whisper-large-v3-turbo`.
 
-El modelo se descarga desde una revisión fija de Systran/faster-whisper-small,
-unos 486 MB, en `%LOCALAPPDATA%/ErgoSense/models/whisper-small`. La variable
-`ERGOSENSE_DICTATION_MODEL` permite indicar otra carpeta local compatible.
-Después de la instalación se carga desde disco y no se consulta la red para
-transcribir. Si falla la preparación o se desborda la cola de audio, se informa
-el error y se vuelve a comandos sin escribir una frase incompleta.
+La carga prueba GPU NVIDIA con int8_float16 cuando las bibliotecas opcionales
+están disponibles y utiliza CPU int8 con cuatro hilos como respaldo. La opción
+`cuda` de dependencias instala las bibliotecas en el entorno, sin cambiar el
+controlador del sistema. `ERGOSENSE_DICTATION_DEVICE=cpu` fuerza CPU. La ruta
+`ERGOSENSE_DICTATION_MODEL` permite un modelo local compatible; una carpeta
+personalizada incompleta produce un error y no se sobrescribe con descargas.
+
+WebRTC VAD en modo 1 analiza cuadros de 20 ms, conserva 300 ms previos y termina
+la frase tras un segundo de silencio, con un máximo de 20 s. Antes de transcribir
+se elimina el desplazamiento continuo y se ajusta el nivel con ganancia máxima
+ocho, limitado a amplitud 0,95. La detección secundaria utiliza umbral 0,35,
+voz mínima 80 ms, silencio mínimo 250 ms y margen de 350 ms. No se reutiliza el
+texto anterior ni se aplican reemplazos de palabras para disimular errores.
+
+Configuración permite elegir un micrófono por nombre y backend. La selección
+permanece en `audio.json` del equipo y se aplica reiniciando la captura. La voz
+muy baja o saturada produce un aviso limitado. El desbordamiento de PortAudio se
+trata como pérdida de captura; se detiene el dictado en vez de transcribir una
+frase incompleta. El modelo instalado procesa audio localmente.
 
 `voice/worker.py` cambia de reconocedor fuera del hilo de la interfaz y vacía el
 audio pendiente al cambiar de modo. Cada resultado lleva la generación del
@@ -134,3 +147,39 @@ SB06-T35 a SB06-T40 como ampliación del alcance. El Documento de arquitectura
 describe el reconocimiento libre y la entrega al ejecutor. El Plan de pruebas
 incorpora CP-06-13 a CP-06-21 y su matriz de trazabilidad. El README del escritorio
 y la ayuda de la aplicación contienen las instrucciones de uso.
+
+
+## Comparación de la ampliación de dictado
+
+Se repitieron diez frases SAPI en español de México, 102 palabras por condición,
+con la misma señal en ambos sistemas. Se comparó la versión anterior small en
+CPU int8, cuatro hilos, con la actual large-v3-turbo en GPU int8_float16. El equipo
+utiliza Ryzen 5 5500 y RTX 3050 de 6 GB. La voz sintetizada no representa una
+medición de reconocimiento con hablantes humanos.
+
+| Condición | Errores anteriores | Errores actuales | Decodificación media anterior | Actual |
+| --- | --- | --- | --- | --- |
+| Señal original | 1/102 | 1/102 | 2,123 s | 0,787 s |
+| Amplitud multiplicada por 0,025 | 1/102 | 1/102 | 2,114 s | 0,811 s |
+| Ruido gaussiano con relación señal/ruido de 8 dB | 2/102 | 1/102 | 2,158 s | 0,812 s |
+
+La muestra limpia no demuestra mejora de precisión agregada; la condición de
+ruido redujo un error. El modelo nuevo corrigió Python en estas frases, pero
+persistieron errores en otros términos. La comparación de latencia también
+cambia CPU por GPU y no se atribuye solo al modelo. No incluye el segundo de
+silencio ni la carga inicial. En otra prueba sintetizada del modelo nuevo en CPU,
+la decodificación promedió 8,48 s sobre quince frases: el respaldo CPU conserva
+funcionamiento, con mayor latencia.
+
+El escritorio obtuvo 406 pruebas aprobadas y siete omitidas de integración
+externa; la API, 102 aprobadas. Se cubren micrófono elegido, nivel, saturación,
+modelo personalizado sin sobrescritura y fallo CUDA con respaldo CPU. La
+aceptación con micrófono humano y el gesto físico sigue pendiente.
+
+Muestras reproducibles del sistema actual:
+
+```powershell
+uv run --extra cuda python scripts/check_voice_samples.py --dictation-long --output "$env:TEMP\dictado-limpio.json"
+uv run --extra cuda python scripts/check_voice_samples.py --dictation-long --noise-snr 8 --output "$env:TEMP\dictado-ruido.json"
+uv run --extra cuda python scripts/check_voice_samples.py --dictation-long --gain 0.025 --output "$env:TEMP\dictado-bajo.json"
+```

@@ -131,3 +131,30 @@ la distribución y carga Qt, el seguimiento de mano, Vosk, VAD, Whisper y los av
 No abre la cámara ni envía credenciales en esa verificación. Tras trasladar el ZIP
 a otro PC, extraerlo completo, configurar la URL del servidor y repetir el ensayo
 de uso. La conexión local 127.0.0.1 no identifica al equipo de origen.
+
+## Confirmación con Enter y mejora del dictado — 17 de noviembre de 2026
+
+El gesto OK confirma con Enter después de tres cuadros estables y una permanencia
+adicional de 0,35 segundos. Envía una sola pulsación y se rearma al volver al gesto
+de apuntar. La pérdida de seguimiento no lo rearma. OK queda reservado y no se
+puede asignar a una macro. La suite comprueba estas condiciones y la liberación
+de la tecla aun cuando falle el controlador de entrada.
+
+El dictado utiliza large-v3-turbo con normalización de nivel y selección local del
+micrófono. La aceleración CUDA es opcional; sin un entorno compatible se utiliza
+CPU. Las pérdidas de captura se detectan para evitar transcribir audio incompleto.
+La regresión obtuvo 406 pruebas aprobadas y siete omitidas en el cliente, y 102
+aprobadas en la API. Ruff no encontró incidencias.
+
+En diez frases sintéticas (102 palabras por condición), la comparación reproducible
+obtuvo un error tanto antes como después con audio limpio y con volumen reducido.
+Con ruido sintético a 8 dB, pasó de dos errores a uno. El promedio de decodificación
+fue de aproximadamente 2,1 s en el sistema anterior con CPU y 0,8 s con el nuevo
+en GPU. La diferencia incluye el cambio de hardware de ejecución y no mide el
+retardo total desde que una persona termina de hablar. Estas muestras no acreditan
+precisión con voz humana ni condiciones reales de uso.
+
+Siguen pendientes la aceptación con cámara y micrófono reales, los intentos
+repetidos del gesto OK y las pruebas prolongadas y entre equipos físicos. Véanse
+`Dictado por voz.md`, `Confirmación con Enter.md` y CP-06-22 a CP-06-27 del Plan de
+pruebas para los criterios y límites de la evidencia.

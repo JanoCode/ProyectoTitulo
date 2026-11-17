@@ -1,5 +1,9 @@
 # Área lateral de interacción
 
+La ampliación [Confirmación con Enter](Confirmaci%C3%B3n%20con%20Enter.md)
+incorpora posteriormente el gesto OK dentro de la misma región lateral. Conserva
+el requisito de palma dentro del área y la liberación segura al perder la mano.
+
 Fecha: 10 de noviembre de 2026.
 
 ## Motivo y alcance
