@@ -61,6 +61,7 @@ class ActionRunner:
         open_url=webbrowser.open,
         start_process=subprocess.Popen,
         on_error=None,
+        on_enter=None,
     ):
         # En las pruebas se entregan un teclado, un navegador y un proceso falsos.
         self._mouse = mouse
@@ -68,8 +69,12 @@ class ActionRunner:
         self._open_url = open_url
         self._start_process = start_process
         self._on_error = on_error or (lambda message: None)
+        self._on_enter = on_enter or (lambda: None)
 
     def perform(self, action):
+        entering = action is Action.ENTER
+        if entering:
+            action = TextInput(key="enter")
         if isinstance(action, TextInput):
             if action.cancelled is not None and action.cancelled.is_set():
                 return True
@@ -81,6 +86,8 @@ class ActionRunner:
             except (OSError, ValueError, KeyError):
                 self._on_error("No se pudo escribir. Comprueba el campo de destino.")
                 return False
+            if entering:
+                self._on_enter()
             return True
         if not isinstance(action, MacroStep):
             self._mouse.perform(action)  # click, arrastre o scroll de gestos y voz

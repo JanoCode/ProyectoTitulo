@@ -25,6 +25,9 @@ INDEX_DOWN_EXIT = 1.58  # para salir del click derecho (histéresis)
 THUMB_OPEN_MIN = 1.0  # pulgar abierto: lejos de la base del meñique
 THUMB_IN_ENTER = 0.85  # para entrar al click izquierdo: pulgar hacia adentro
 THUMB_IN_EXIT = 0.95  # para salir del click izquierdo (histéresis)
+OK_PINCH_ENTER = 0.16
+OK_PINCH_EXIT = 0.24
+OK_APPROACH = 0.40
 
 # Puntos de MediaPipe que usan las reglas.
 WRIST = 0
@@ -43,13 +46,14 @@ class Gesture(StrEnum):
     THUMB_IN = "thumb_in"  # mano abierta con el pulgar adentro: click izquierdo
     INDEX_DOWN = "index_down"  # mano abierta con el índice abajo: click derecho
     TWO_FINGERS = "two_fingers"  # índice y medio arriba: scroll
+    OK = "ok"
     FIST = "fist"  # reservado para macros (Sprint 05)
     L_SHAPE = "l_shape"  # índice y pulgar en "L": reservado para macros (Sprint 05)
 
 
 # Gestos que parten de la mano abierta: mientras se pasa de uno a otro, los dedos
 # que no se mueven pueden relajarse un poco sin que el gesto se corte.
-OPEN_HAND_GESTURES = {Gesture.POINT, Gesture.THUMB_IN, Gesture.INDEX_DOWN}
+OPEN_HAND_GESTURES = {Gesture.POINT, Gesture.THUMB_IN, Gesture.INDEX_DOWN, Gesture.OK}
 
 
 @dataclass(frozen=True)
@@ -68,6 +72,7 @@ class HandMeasures:
     ring: float
     pinky: float
     thumb_open: float
+    pinch: float = math.inf
 
 
 def measure(points):
@@ -75,6 +80,9 @@ def measure(points):
     # Tamaño de la mano: de la muñeca a la base del dedo medio. Al dividir por él,
     # da lo mismo si la mano es grande o chica, o si está cerca o lejos.
     size = math.dist(points[WRIST], points[MIDDLE_BASE])
+    if size <= 1e-9 or any(math.dist(points[WRIST], points[base]) <= 1e-9
+                          for base, _ in FINGERS.values()):
+        return None
 
     def reach(base, tip):
         # Un dedo recto lleva su punta lejos de la muñeca; uno doblado la regresa.
@@ -88,6 +96,7 @@ def measure(points):
         ring=reach(*FINGERS["ring"]),
         pinky=reach(*FINGERS["pinky"]),
         thumb_open=math.dist(points[THUMB_TIP], points[PINKY_BASE]) / size,
+        pinch=math.dist(points[THUMB_TIP], points[8]) / size,
     )
 
 
@@ -108,7 +117,8 @@ class GestureClassifier:
 
     def classify(self, points):
         """Devuelve el gesto de la mano, o NONE si no hay mano."""
-        gesture = Gesture.NONE if points is None else self._classify(measure(points))
+        measures = None if points is None else measure(points)
+        gesture = Gesture.NONE if measures is None else self._classify(measures)
         self._previous = gesture
         return gesture
 
@@ -122,6 +132,11 @@ class GestureClassifier:
         )
 
         if all(r > others_min for r in others):
+            pinch_max = OK_PINCH_EXIT if self._previous is Gesture.OK else OK_PINCH_ENTER
+            if m.pinch < pinch_max:
+                return Gesture.OK
+            if m.pinch < OK_APPROACH:
+                return Gesture.NONE
             return self._classify_open_hand(m)
         if (
             _extended(m.index)

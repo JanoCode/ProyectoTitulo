@@ -15,7 +15,7 @@ from ergosense.voice.commands import COMMANDS, normalize
 BASE_VOICE_COMMANDS = frozenset(COMMANDS)
 # Gestos del Sprint 03: los que tienen una acción predefinida no sirven de activador.
 GESTURES_WITH_ACTION = frozenset(
-    {Gesture.POINT, Gesture.THUMB_IN, Gesture.INDEX_DOWN, Gesture.TWO_FINGERS}
+    {Gesture.POINT, Gesture.THUMB_IN, Gesture.INDEX_DOWN, Gesture.TWO_FINGERS, Gesture.OK}
 )
 MACRO_GESTURES = (Gesture.FIST, Gesture.L_SHAPE)
 GESTURE_NAMES = {Gesture.FIST: "Puño", Gesture.L_SHAPE: "L (índice y pulgar)"}

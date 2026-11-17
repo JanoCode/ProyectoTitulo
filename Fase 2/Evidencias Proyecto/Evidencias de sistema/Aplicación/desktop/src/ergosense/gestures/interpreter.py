@@ -14,6 +14,7 @@ from ergosense.gestures.classifier import Gesture
 STABLE_FRAMES = 3  # cuadros seguidos que debe durar un gesto (unos 0,1 s)
 HOLD_SECONDS = 0.4  # pulgar adentro más corto: click; más largo: arrastre
 SCROLL_STEP = 20  # píxeles de la cámara que debe subir o bajar la mano por paso
+ENTER_HOLD_SECONDS = 0.35
 
 
 class GestureStabilizer:
@@ -64,6 +65,8 @@ class GestureInterpreter:
         self._press_started = None  # momento en que el pulgar entró
         self._dragging = False  # el botón izquierdo está presionado
         self._scroll_reference = None  # altura de la mano desde la que se cuenta
+        self._enter_started = None
+        self._enter_armed = True
 
     def update(self, gesture, hand_y=None):
         """Recibe el gesto estable y la altura de la mano en la cámara, en píxeles."""
@@ -71,7 +74,10 @@ class GestureInterpreter:
         actions = []
         if gesture is not self._gesture:
             # Primero se cierra el gesto anterior y después se abre el nuevo.
-            actions += self._leave(self._gesture)
+            if gesture is not Gesture.POINT and self._gesture is Gesture.THUMB_IN and not self._dragging:
+                self._press_started = None
+            else:
+                actions += self._leave(self._gesture)
             actions += self._enter(gesture, now, hand_y)
             self._gesture = gesture
         actions += self._hold(gesture, now, hand_y)
@@ -88,6 +94,7 @@ class GestureInterpreter:
         self._press_started = None
         self._dragging = False
         self._scroll_reference = None
+        self._enter_started = None
         return tuple(actions)
 
     def _leave(self, gesture):
@@ -103,6 +110,9 @@ class GestureInterpreter:
         return []
 
     def _enter(self, gesture, now, hand_y):
+        self._enter_started = now if gesture is Gesture.OK else None
+        if gesture is Gesture.POINT:
+            self._enter_armed = True
         if gesture is Gesture.THUMB_IN:
             # Todavía no se sabe si será click o arrastre: se mide cuánto dura.
             self._press_started = now
@@ -115,6 +125,10 @@ class GestureInterpreter:
         return []
 
     def _hold(self, gesture, now, hand_y):
+        if (gesture is Gesture.OK and self._enter_armed and self._enter_started is not None
+                and now - self._enter_started >= ENTER_HOLD_SECONDS):
+            self._enter_armed = False
+            return [Action.ENTER]
         if gesture is Gesture.THUMB_IN and not self._dragging:
             if now - self._press_started >= self._hold_seconds:
                 # El pulgar se mantuvo adentro: empieza el arrastre (PB-11).
