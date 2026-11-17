@@ -25,6 +25,7 @@ GESTURES = [
     ("Pulgar adentro", "Clic izquierdo"),
     ("Índice abajo", "Clic derecho"),
     ("Dos dedos extendidos", "Desplazamiento vertical"),
+    ("OK: unir pulgar e índice", "Confirmar con Enter (0,35 s)"),
     ("Mantener el pulgar adentro y mover", "Arrastrar"),
     ("Abrir el pulgar", "Soltar"),
     # Sin acción predefinida: el usuario los asigna a sus macros (Sprint 05).

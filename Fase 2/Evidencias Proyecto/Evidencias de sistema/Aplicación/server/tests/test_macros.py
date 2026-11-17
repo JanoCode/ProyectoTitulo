@@ -37,6 +37,14 @@ def test_dictation_activation_cannot_be_assigned_to_macro(client, headers, phras
     assert client.get(MACROS, headers=headers).json() == []
 
 
+def test_enter_gesture_cannot_be_assigned_to_a_macro(client, headers):
+    response = client.post(MACROS, headers=headers, json=macro(
+        triggers=[{"trigger_type": "GESTURE", "trigger_value": "ok"}],
+    ))
+    assert response.status_code == 409
+    assert client.get(MACROS, headers=headers).json() == []
+
+
 def test_cp_05_01_crea_una_macro_activada_y_la_lista(client, headers):
     created = client.post(MACROS, headers=headers, json=macro(description=" Correo "))
 

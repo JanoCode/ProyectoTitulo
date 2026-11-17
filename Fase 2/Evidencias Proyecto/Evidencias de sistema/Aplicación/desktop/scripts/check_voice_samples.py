@@ -63,7 +63,12 @@ def main():
     parser.add_argument("--dictation", action="store_true")
     parser.add_argument("--dictation-long", action="store_true")
     parser.add_argument("--compare-previous", action="store_true")
+    parser.add_argument("--noise-snr", type=float)
+    parser.add_argument("--gain", type=float, default=1.0)
+    parser.add_argument("--output", type=Path)
     args = parser.parse_args()
+    if args.gain <= 0:
+        parser.error("--gain debe ser positivo")
     args.dictation = args.dictation or args.dictation_long
     if os.name != "nt":
         raise SystemExit("Esta prueba requiere Windows y una voz SAPI en español")
@@ -97,6 +102,15 @@ def main():
             with wave.open(str(path), "rb") as audio:
                 assert (audio.getframerate(), audio.getnchannels(), audio.getsampwidth()) == (16000, 1, 2)
                 data = audio.readframes(audio.getnframes())
+            if args.gain != 1.0 or args.noise_snr is not None:
+                import numpy as np
+
+                samples = np.frombuffer(data, dtype=np.int16).astype(np.float32) / 32768
+                if args.noise_snr is not None:
+                    noise = np.random.default_rng(len(results) + 100).normal(0, 1, samples.size)
+                    samples += noise * np.sqrt(np.mean(samples * samples)) / (10 ** (args.noise_snr / 20))
+                samples *= args.gain
+                data = (np.clip(samples, -.99, .99) * 32767).astype(np.int16).tobytes()
             started = time.perf_counter()
             recognizer.AcceptWaveform(data + bytes(16000 * 2))
             text = json.loads(recognizer.FinalResult()).get("text", "")
@@ -118,9 +132,12 @@ def main():
                 result.update(previous=old_text,
                     previous_word_errors=word_errors(words(phrase), words(old_text)))
             results.append(result)
-    print(json.dumps({"source": "SAPI Spanish Mexico", "human_microphone_test": False,
-                      "mode": "dictation" if args.dictation else "commands",
-                      "results": results}, ensure_ascii=False))
+    report = {"source": "SAPI Spanish Mexico", "human_microphone_test": False,
+              "mode": "dictation" if args.dictation else "commands",
+              "gain": args.gain, "noise_snr_db": args.noise_snr, "results": results}
+    if args.output:
+        args.output.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+    print(json.dumps(report, ensure_ascii=False))
     return 0 if all(result["passed"] for result in results) else 1
 
 

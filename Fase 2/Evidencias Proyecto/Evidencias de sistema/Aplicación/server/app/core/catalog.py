@@ -28,7 +28,7 @@ BASE_VOICE_COMMANDS = frozenset(
     }
 )
 # Gestos del Sprint 03: los que tienen una acción predefinida no sirven de activador.
-GESTURES_WITH_ACTION = frozenset({"point", "thumb_in", "index_down", "two_fingers"})
+GESTURES_WITH_ACTION = frozenset({"point", "thumb_in", "index_down", "two_fingers", "ok"})
 MACRO_GESTURES = frozenset({"fist", "l_shape"})
 
 TRIGGER_TYPES = ("VOICE", "GESTURE")

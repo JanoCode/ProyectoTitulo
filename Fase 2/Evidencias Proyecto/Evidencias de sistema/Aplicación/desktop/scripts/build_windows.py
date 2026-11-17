@@ -33,6 +33,8 @@ def copy_models(destination):
     from huggingface_hub import snapshot_download
 
     from ergosense.voice.dictation import (
+        MODEL_FILES,
+        MODEL_FOLDER,
         MODEL_REPOSITORY,
         MODEL_REVISION,
         dictation_model_path,
@@ -40,8 +42,10 @@ def copy_models(destination):
     from ergosense.voice.recognizer import MODEL_NAME, download_model
 
     voice = download_model()
+    if os.environ.get("ERGOSENSE_DICTATION_MODEL"):
+        raise RuntimeError("Retira ERGOSENSE_DICTATION_MODEL para construir el paquete con el modelo fijado.")
     whisper = dictation_model_path()
-    required = ("model.bin", "config.json", "tokenizer.json", "vocabulary.txt")
+    required = MODEL_FILES
     if not all((whisper / name).is_file() for name in required):
         snapshot_download(
             MODEL_REPOSITORY, revision=MODEL_REVISION, local_dir=whisper,
@@ -49,9 +53,9 @@ def copy_models(destination):
         )
     model_folder = destination / "models"
     shutil.copytree(voice, model_folder / MODEL_NAME)
-    (model_folder / "whisper-small").mkdir()
+    (model_folder / MODEL_FOLDER).mkdir()
     for name in required:
-        shutil.copy2(whisper / name, model_folder / "whisper-small" / name)
+        shutil.copy2(whisper / name, model_folder / MODEL_FOLDER / name)
 
 
 def licenses(destination):

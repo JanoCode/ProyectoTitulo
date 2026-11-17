@@ -4,7 +4,7 @@ from unittest.mock import Mock
 
 import numpy as np
 
-from ergosense.voice.dictation import FRAME_BYTES, DictationRecognizer
+from ergosense.voice.dictation import FRAME_BYTES, MAX_SECONDS, DictationRecognizer
 
 
 class FrameVad:
@@ -21,10 +21,10 @@ def recognizer(text="Buscar información sobre ergonomía."):
 
 
 def speech(frames=20):
-    return b"\x10\x00" * (FRAME_BYTES // 2) * frames
+    return b"\xe8\x03\x18\xfc" * (FRAME_BYTES // 4) * frames
 
 
-def silence(frames=40):
+def silence(frames=60):
     return bytes(FRAME_BYTES * frames)
 
 
@@ -41,7 +41,7 @@ def test_waits_for_silence_then_preserves_accents_and_punctuation():
     rec.set_state_callback(states.append)
     assert not rec.AcceptWaveform(speech())
     assert not rec.AcceptWaveform(silence(20))
-    assert rec.AcceptWaveform(silence(20))
+    assert rec.AcceptWaveform(silence(35))
     assert json.loads(rec.Result())["text"] == "Buscar información sobre ergonomía."
     assert states == ["processing", "listening"]
     kwargs = model.transcribe.call_args.kwargs
@@ -70,9 +70,9 @@ def test_short_impulse_is_not_transcribed():
 
 def test_continuous_audio_is_split_at_a_bounded_duration():
     rec, model = recognizer()
-    assert rec.AcceptWaveform(speech(610))
+    assert rec.AcceptWaveform(speech(MAX_SECONDS * 50 + 10))
     assert model.transcribe.call_count == 1
-    assert model.transcribe.call_args.args[0].size <= 16000 * 12
+    assert model.transcribe.call_args.args[0].size <= 16000 * MAX_SECONDS
 
 
 def test_failure_returns_indicator_to_listening_and_propagates():

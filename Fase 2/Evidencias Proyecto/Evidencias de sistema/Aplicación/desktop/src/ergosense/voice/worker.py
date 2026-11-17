@@ -12,6 +12,7 @@ import threading
 import sounddevice as sd
 from PySide6.QtCore import QObject, Signal, Slot
 
+from ergosense.voice.audio_settings import selected_microphone, stream_options
 from ergosense.voice.recognizer import (
     SAMPLE_RATE,
     DownloadCancelled,
@@ -40,6 +41,7 @@ class VoiceWorker(QObject):
     dictated = Signal(str)
     dictation_state_changed = Signal(str)
     dictation_failed = Signal(str)
+    audio_warning = Signal(str)
     status_changed = Signal(str)
     microphone_changed = Signal(str)  # nombre del micrófono que se está usando
     _result = Signal(int, str)
@@ -48,6 +50,7 @@ class VoiceWorker(QObject):
     _scoped_result = Signal(int, int, str)
     _dictation_state = Signal(int, int, str)
     _dictation_failure = Signal(int, int, str)
+    _audio_warning = Signal(int, int, str)
 
     def __init__(
         self, recognizer_factory=create_recognizer, model_downloader=download_model,
@@ -74,6 +77,13 @@ class VoiceWorker(QObject):
         self._scoped_result.connect(self._deliver_scoped_result)
         self._dictation_state.connect(self._deliver_dictation_state)
         self._dictation_failure.connect(self._deliver_dictation_failure)
+        self._audio_warning.connect(self._deliver_audio_warning)
+
+    @Slot(int, int, str)
+    def _deliver_audio_warning(self, generation, revision, message):
+        if (generation == self._generation and revision == self._mode[0]
+                and self._mode[1] and not self._stop.is_set()):
+            self.audio_warning.emit(message)
 
     @Slot(int, int, str)
     def _deliver_dictation_state(self, generation, revision, state):
@@ -178,6 +188,8 @@ class VoiceWorker(QObject):
 
         def capture(data, frames, timing, status):
             if not stopped.is_set():
+                if getattr(status, "input_overflow", False) is True:
+                    overflow.set()
                 try:
                     chunks.put_nowait(bytes(data))
                 except queue.Full:
@@ -198,6 +210,7 @@ class VoiceWorker(QObject):
                 dtype="int16",
                 blocksize=BLOCK_FRAMES,
                 callback=capture,
+                **stream_options(),
             ) as stream:
                 if stopped.is_set():
                     return
@@ -224,6 +237,12 @@ class VoiceWorker(QObject):
                                 recognizer.set_state_callback(
                                     lambda state, revision=revision:
                                     self._dictation_state.emit(generation, revision, state)
+                                )
+                            if hasattr(recognizer, "set_quality_callback"):
+                                revision = mode[0]
+                                recognizer.set_quality_callback(
+                                    lambda message, revision=revision:
+                                    self._audio_warning.emit(generation, revision, message)
                                 )
                             clear_audio()
                             self._dictation_state.emit(generation, mode[0], "listening")
@@ -302,6 +321,9 @@ class VoiceWorker(QObject):
 
 
 def _input_device_name():
+    selected = selected_microphone()
+    if selected:
+        return selected["name"]
     try:
         return sd.query_devices(kind="input")["name"]
     except (sd.PortAudioError, ValueError):

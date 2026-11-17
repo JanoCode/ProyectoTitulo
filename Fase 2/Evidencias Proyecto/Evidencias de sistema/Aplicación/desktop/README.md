@@ -162,7 +162,7 @@ Para no ejecutar acciones con frases que no son comandos (RNF-03):
 
 En pruebas con audios generados por la voz en español de Windows, se reconocieron los 10 comandos y ninguna de 12 frases distintas se confundió con un comando.
 
-La voz usa el **micrófono predeterminado de Windows**; la tarjeta de voz muestra cuál es. Para usar otro, cámbialo en Configuración → Sistema → Sonido → Entrada. Al apagar la voz se cierra el micrófono; para volver a encenderla se usa el interruptor de la ventana.
+La voz utiliza inicialmente el **micrófono predeterminado de Windows**. **Configuración → Micrófono para voz y dictado** permite elegir otro; se guarda por nombre y sistema de audio en este computador y el cambio reinicia la captura. La tarjeta de voz muestra el dispositivo seleccionado. Si se desconecta, se informa su indisponibilidad. Al apagar la voz se cierra el micrófono; para volver a encenderla se usa el interruptor de la ventana.
 
 ## Macros
 
@@ -263,15 +263,15 @@ Con el control por voz activo y el micrófono listo, decir **iniciar dictado** o
 **Dictando**, seleccionar el campo de destino con un gesto y hablar. Cada frase
 se escribe al hacer una pausa; el destino es el campo que tenga el foco.
 
-El dictado utiliza Whisper small con faster-whisper en CPU; los comandos cortos
-mantienen Vosk. La primera preparación descarga unos 486 MB en la carpeta local
+El dictado utiliza large-v3-turbo con faster-whisper; los comandos cortos
+mantienen Vosk. La primera preparación descarga unos 1,62 GB en la carpeta local
 de ErgoSense, fuera del repositorio. Después funciona sin internet. El modelo de
 dictado ya instalado se reutiliza y no se descarga en cada inicio.
 
-Un único icono semitransparente de micrófono permanece arriba a la derecha sobre
+El panel semitransparente de modos permanece arriba a la derecha sobre
 las demás aplicaciones. Ámbar significa preparación, verde escucha y azul
-transcripción. Esperar al verde para empezar. El icono no toma foco ni intercepta
-clics, y desaparece al terminar el dictado. Cada frase puede tardar unos segundos
+transcripción. Esperar **Escuchando** para empezar. El panel no toma foco ni intercepta
+clics; al terminar el dictado vuelve al estado de voz. Cada frase puede tardar unos segundos
 en aparecer; se conserva la puntuación automática que genere el reconocedor.
 
 Durante el dictado, **enviar texto** y **nueva línea** pulsan Enter;
@@ -289,7 +289,29 @@ durante una sesión ya abierta.
 
 El reconocimiento puede equivocarse con palabras, nombres y puntuación. Revisar
 el resultado antes de decir **enviar texto**. No incluye transcripción de archivos
-ni otros idiomas. Utiliza el mismo modelo y las dependencias existentes.
+ni otros idiomas. La mayor capacidad del modelo no garantiza eliminar todos los errores.
+
+### Confirmar una búsqueda o enviar texto con la mano
+
+Después de que aparezca el texto, mantener el gesto **OK** dentro del área de acción: unir las puntas de pulgar e índice con los otros tres dedos extendidos. Tras 0,35 s se pulsa **Enter** una sola vez y aparece «Enter enviado». Abrir la mano para volver a confirmar. Mantener OK o perder y recuperar la mano no repite la pulsación. Enter actúa sobre el campo con foco; según la aplicación puede buscar, confirmar o enviar. OK queda reservado y no puede asignarse a una macro.
+
+### Aceleración y calidad de captura
+
+El dictado prueba una GPU NVIDIA compatible si están disponibles sus bibliotecas; si no, utiliza CPU int8. Para instalar el soporte opcional en Windows:
+
+```powershell
+uv sync --locked --extra cuda
+```
+
+Para preparar también las bibliotecas de un ejecutable en este computador:
+
+```powershell
+uv run --extra cuda python scripts/install_cuda_runtime.py
+```
+
+Se conservan en `%LOCALAPPDATA%/ErgoSense/cuda/bin`; no se modifica el controlador ni el PATH del sistema. `ERGOSENSE_DICTATION_DEVICE=cpu` fuerza CPU. La falta o el fallo de GPU conserva el respaldo CPU, con mayor latencia. La carpeta del modelo predeterminado es `whisper-large-v3-turbo`; una ruta personalizada incompleta produce un error y no se sobrescribe.
+
+El audio conserva 300 ms anteriores, espera un segundo de silencio y limita cada segmento a 20 s. Se normaliza el nivel con ganancia limitada y se avisa de señal baja o saturada. Si se pierden fragmentos de captura, el dictado se detiene con aviso para evitar escribir una frase incompleta. La elección del micrófono y el ruido del entorno siguen afectando la precisión.
 
 Muestras reproducibles de voz sintetizada, sin abrir el micrófono ni escribir en
 otras aplicaciones:

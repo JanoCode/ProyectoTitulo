@@ -48,6 +48,7 @@ GESTURE_LABELS = {
     "thumb_in": "clic izquierdo",
     "index_down": "clic derecho",
     "two_fingers": "desplazamiento",
+    "ok": "OK · confirmar con Enter",
     "fist": "puño",
     "l_shape": "L",
 }

@@ -24,6 +24,12 @@ dependencies = [
 [project.scripts]
 ergosense = "ergosense.app.main:main"
 
+[project.optional-dependencies]
+cuda = [
+    "nvidia-cublas-cu12==12.9.2.10 ; sys_platform == 'win32'",
+    "nvidia-cuda-runtime-cu12==12.9.79 ; sys_platform == 'win32'",
+]
+
 [build-system]
 requires = ["uv_build>=0.11.6,<0.12.0"]
 build-backend = "uv_build"
