@@ -35,7 +35,7 @@ from ergosense.monitoring.inactivity import InactivityMonitor
 from ergosense.monitoring.input_listener import InputListener
 from ergosense.ui import icons
 from ergosense.ui.auth_dialogs import LoginDialog
-from ergosense.ui.dictation_indicator import DictationIndicator
+from ergosense.ui.desktop_feedback import DesktopFeedback
 from ergosense.ui.macros_dialog import ApplicationsDialog, MacrosDialog
 from ergosense.ui.main_window import MainWindow
 from ergosense.ui.settings_dialog import SettingsDialog
@@ -95,6 +95,8 @@ def main():
     tray.show()
 
     window = MainWindow(tray)
+    feedback = DesktopFeedback()
+    window.notification_requested.connect(feedback.notify)
     window.show_user(api_client.user["name"], api_client.user["email"])
     window.show_connection(True)
 
@@ -164,10 +166,14 @@ def main():
     gestures.camera_unavailable.connect(window.show_camera_unavailable)
     gestures.hand_changed.connect(window.show_hand)
     gestures.frame_ready.connect(window.show_frame)
+    gestures.frame_ready.connect(feedback.camera_available)
+    gestures.camera_unavailable.connect(feedback.camera_unavailable)
+    gestures.hand_changed.connect(feedback.hand_changed)
     # Se respeta la preferencia guardada en la cuenta (PB-36): la cámara solo se abre
     # si el control por gestos está activado.
     voice = VoiceWorker()
     voice.status_changed.connect(window.show_voice_status)
+    voice.status_changed.connect(feedback.voice_status)
     voice.microphone_changed.connect(window.show_microphone)
     preferences = PreferencesController(
         gestures,
@@ -175,6 +181,7 @@ def main():
         window,
         inactivity_override=inactivity_override,
         voice=voice,
+        on_features_applied=feedback.set_features,
     )
     preferences.apply(settings)
 
@@ -196,6 +203,12 @@ def main():
             pending.submit(lambda: api_client.update_settings(changes))
             updated = api_client.settings
         preferences.apply(updated)
+        if message is None:
+            message = " · ".join(
+                FEATURE_MESSAGES[key, value].rstrip(".")
+                for key, value in changes.items()
+                if (key, value) in FEATURE_MESSAGES
+            )
         if message:
             window.show_toast(message)
         return True
@@ -250,9 +263,8 @@ def main():
         set_dictation=voice.set_dictation,
     )
     voice.recognized.connect(voice_controller.handle)
-    dictation_indicator = DictationIndicator()
-    voice_controller.dictation_changed.connect(dictation_indicator.set_active)
-    voice.dictation_state_changed.connect(dictation_indicator.set_state)
+    voice_controller.dictation_changed.connect(feedback.set_dictation)
+    voice.dictation_state_changed.connect(feedback.set_dictation_state)
     voice.dictation_state_changed.connect(window.show_dictation_state)
     voice.dictation_failed.connect(
         lambda message: (
@@ -310,7 +322,7 @@ def main():
         # cámara; después el ejecutor termina las acciones pendientes.
         gestures.stop()
         voice.stop()
-        dictation_indicator.close()
+        feedback.close()
         executor.stop()
         listener.stop()
         try:

@@ -13,9 +13,11 @@ class PreferencesController:
     """Enciende o apaga los gestos, la voz y la cámara, y ajusta la inactividad."""
 
     def __init__(
-        self, gestures, inactivity, window, inactivity_override=None, voice=None
+        self, gestures, inactivity, window, inactivity_override=None, voice=None,
+        on_features_applied=None,
     ):
         self._voice = voice
+        self._on_features_applied = on_features_applied or (lambda settings: None)
         self._gestures = gestures
         self._inactivity = inactivity
         self._window = window
@@ -31,6 +33,7 @@ class PreferencesController:
 
     def apply(self, settings):
         """Aplica una configuración completa, como la que entrega el servidor."""
+        self._on_features_applied(settings)
         seconds = self._inactivity_override or settings["inactivity_break_minutes"] * 60
         # El nuevo tiempo cuenta para las pausas siguientes; el aviso de 60 minutos no
         # depende de esta configuración (PB-37).

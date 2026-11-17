@@ -94,6 +94,7 @@ class MainWindow(QWidget):
     feature_requested = Signal(str, bool)  # activar o desactivar gestos o voz
     camera_requested = Signal(bool)  # encender o apagar la cámara
     dictation_requested = Signal(bool)
+    notification_requested = Signal(str, str)
 
     def __init__(self, tray=None):
         super().__init__()  # prepara la parte de QWidget; va siempre primero
@@ -446,6 +447,7 @@ class MainWindow(QWidget):
     def show_toast(self, text, kind="success"):
         """Muestra un mensaje breve abajo de la ventana."""
         self.toast.show_message(text, kind)
+        self.notification_requested.emit(text, kind)
 
     # ---------- cámara
 
