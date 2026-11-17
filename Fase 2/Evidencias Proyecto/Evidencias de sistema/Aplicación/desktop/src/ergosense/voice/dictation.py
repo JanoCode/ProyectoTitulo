@@ -7,6 +7,8 @@ from pathlib import Path
 import numpy as np
 import webrtcvad
 
+from ergosense.app.resources import portable_model
+
 SAMPLE_RATE = 16000
 FRAME_BYTES = 640
 MODEL_REPOSITORY = "Systran/faster-whisper-small"
@@ -19,6 +21,9 @@ def dictation_model_path():
     custom = os.environ.get("ERGOSENSE_DICTATION_MODEL")
     if custom:
         return Path(custom)
+    portable = portable_model("whisper-small")
+    if portable:
+        return portable
     base = os.environ.get("LOCALAPPDATA") or str(Path.home() / "AppData" / "Local")
     return Path(base) / "ErgoSense" / "models" / "whisper-small"
 

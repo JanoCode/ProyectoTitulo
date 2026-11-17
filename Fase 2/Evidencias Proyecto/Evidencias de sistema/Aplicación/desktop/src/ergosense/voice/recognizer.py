@@ -19,6 +19,7 @@ from pathlib import Path
 
 import vosk
 
+from ergosense.app.resources import portable_model
 from ergosense.voice.grammar import grammar_json
 
 MODEL_NAME = "vosk-model-small-es-0.42"
@@ -51,7 +52,9 @@ def models_folder():
 def model_path():
     """Dónde está el modelo. ERGOSENSE_VOICE_MODEL permite usar otra carpeta."""
     custom = os.environ.get("ERGOSENSE_VOICE_MODEL")
-    return Path(custom) if custom else models_folder() / MODEL_NAME
+    return Path(custom) if custom else (
+        portable_model(MODEL_NAME) or models_folder() / MODEL_NAME
+    )
 
 
 def is_installed(path=None):
