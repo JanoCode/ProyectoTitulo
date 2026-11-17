@@ -44,3 +44,22 @@ def test_ventana_de_login_muestra_el_error_del_servidor(qapp):
 
     assert dialog.result() != dialog.DialogCode.Accepted
     assert dialog.error_label.text() == "Las credenciales son incorrectas."
+
+
+def test_sin_datos_marca_los_campos_y_no_consulta_al_servidor(qapp):
+    client = FakeApiClient()
+    dialog = LoginDialog(client)
+
+    dialog.submit()
+
+    assert client.logged_in is None
+    assert dialog._email.error.text() == "Completa este campo para continuar"
+    assert dialog._password.error.text() == "Completa este campo para continuar"
+
+
+def test_el_ojo_muestra_y_oculta_la_contrasena(qapp):
+    dialog = LoginDialog(FakeApiClient())
+    field = dialog._password
+    assert field.input.echoMode() == field.input.EchoMode.Password
+    field._eye.trigger()
+    assert field.input.echoMode() == field.input.EchoMode.Normal

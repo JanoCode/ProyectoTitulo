@@ -26,6 +26,8 @@ class MouseActions:
             self._mouse.release(Button.left)
         elif action is Action.RIGHT_CLICK:
             self._mouse.click(Button.right)
+        elif action is Action.DOUBLE_CLICK:
+            self._mouse.click(Button.left, 2)
         elif action is Action.SCROLL_UP:
             self._mouse.scroll(0, 1)  # dy positivo: la rueda hacia arriba
         elif action is Action.SCROLL_DOWN:

@@ -10,5 +10,6 @@ class Action(StrEnum):
     LEFT_DOWN = "left_down"  # inicio del arrastre: presiona sin soltar
     LEFT_UP = "left_up"  # término del arrastre: suelta el botón
     RIGHT_CLICK = "right_click"
+    DOUBLE_CLICK = "double_click"  # solo lo piden las macros (MOUSE_CLICK)
     SCROLL_UP = "scroll_up"  # un paso de la rueda hacia arriba
     SCROLL_DOWN = "scroll_down"  # un paso de la rueda hacia abajo

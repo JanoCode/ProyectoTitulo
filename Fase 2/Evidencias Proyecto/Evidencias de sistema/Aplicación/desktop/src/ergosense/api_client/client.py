@@ -129,6 +129,45 @@ class ApiClient:
             json={"ended_at": ended_at.isoformat()},
         )
 
+    # ---------- macros y aplicaciones registradas (PB-38 a PB-45)
+
+    def list_macros(self) -> list:
+        return self._request("GET", "/macros")
+
+    def create_macro(self, data: dict) -> dict:
+        return self._request("POST", "/macros", json=data)
+
+    def replace_macro(self, macro_id: int, data: dict) -> dict:
+        return self._request("PUT", f"/macros/{macro_id}", json=data)
+
+    def set_macro_enabled(self, macro_id: int, enabled: bool) -> dict:
+        return self._request("PATCH", f"/macros/{macro_id}", json={"enabled": enabled})
+
+    def delete_macro(self, macro_id: int) -> None:
+        self._request("DELETE", f"/macros/{macro_id}")
+
+    def list_applications(self, device_name: str) -> list:
+        return self._request(
+            "GET", "/applications", params={"device_name": device_name}
+        )
+
+    def create_application(self, data: dict) -> dict:
+        return self._request("POST", "/applications", json=data)
+
+    def update_application(self, application_id: int, data: dict) -> dict:
+        return self._request("PUT", f"/applications/{application_id}", json=data)
+
+    def delete_application(self, application_id: int) -> None:
+        self._request("DELETE", f"/applications/{application_id}")
+
+    def check_connection(self) -> bool:
+        """Consulta GET /health, que no requiere token (PB-50)."""
+        try:
+            self._request("GET", "/health", authenticated=False)
+        except ApiClientError:
+            return False
+        return True
+
     def clear_local_session(self) -> None:
         """La contraseña nunca se guarda; aquí se quitan tokens y datos cargados."""
         self._token_store.clear()
@@ -165,6 +204,7 @@ class ApiClient:
         path: str,
         *,
         json: dict | None = None,
+        params: dict | None = None,
         authenticated: bool = True,
         retry_refresh: bool = True,
     ) -> dict:
@@ -179,6 +219,7 @@ class ApiClient:
                 method,
                 f"{self._base_url}{path}",
                 json=json,
+                params=params,
                 headers=headers,
             )
         except httpx.RequestError as error:
@@ -192,13 +233,17 @@ class ApiClient:
                 method,
                 path,
                 json=json,
+                params=params,
                 authenticated=True,
                 retry_refresh=False,
             )
         if response.is_error:
             try:
-                detail = response.json().get("detail")
+                payload = response.json()
+                detail = payload.get("detail") if isinstance(payload, dict) else None
             except ValueError:
+                detail = None
+            if not isinstance(detail, str):
                 detail = None
             raise ApiClientError(
                 detail or "El servidor no pudo completar la operación.",
@@ -206,4 +251,7 @@ class ApiClient:
             )
         if not response.content:
             return {}
-        return response.json()
+        try:
+            return response.json()
+        except ValueError as error:
+            raise ApiClientError("El servidor devolvió una respuesta no válida.") from error

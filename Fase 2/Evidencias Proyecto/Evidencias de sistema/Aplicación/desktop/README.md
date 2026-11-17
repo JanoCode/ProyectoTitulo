@@ -1,23 +1,23 @@
 # ErgoSense – Aplicación de escritorio
 
-ErgoSense es una aplicación de escritorio para Windows que monitorea el tiempo de uso del computador, recomienda pausas y permite controlar el equipo mediante gestos de la mano. En los Sprints siguientes se agregarán el control por voz y las macros.
+ErgoSense es una aplicación de escritorio para Windows que monitorea el tiempo de uso del computador, recomienda pausas y permite controlar el equipo mediante gestos de la mano y comandos de voz. Desde el Sprint 05 también permite crear macros que se ejecutan con una frase o un gesto.
 
-## Estado actual: Sprint 03
+## Estado actual: Sprint 05
 
 | Sprint | Funcionalidad |
 |---|---|
 | 01 | Monitoreo de actividad de teclado y mouse, aviso de pausa a los 60 minutos (PB-01 a PB-06). |
 | 02 | Cuentas, inicio de sesión, sesiones de uso y pausas por inactividad guardadas en el servidor (PB-32 a PB-35, PB-48 y PB-49). |
 | 03 | Control mediante gestos con la cámara web y configuración del usuario (PB-07 a PB-13, PB-36 y PB-37). |
+| 04 | Control por voz sin internet e interfaz de usuario (PB-14 a PB-20). |
+| 05 | Macros personalizadas, aplicaciones registradas, persistencia integrada y pérdida de conexión (PB-38 a PB-45 y PB-50). |
 
-La ventana sigue siendo deliberadamente sencilla: la interfaz visual completa corresponde al Sprint 04.
-
-**Privacidad:** la aplicación registra solo el momento de la última interacción, nunca qué tecla se presionó ni qué botón se usó (RNF-16). Las imágenes de la cámara se procesan en memoria: nunca se guardan en disco ni se envían al servidor (RNF-17).
+**Privacidad:** la aplicación registra solo el momento de la última interacción, nunca qué tecla se presionó ni qué botón se usó (RNF-16). Las imágenes de la cámara y el audio del micrófono se procesan en este equipo: nunca se guardan en disco ni se envían a otro servicio (RNF-17).
 
 ## Requisitos
 
 - Windows 10 u 11 de 64 bits.
-- Una cámara web, para el control mediante gestos. Sin cámara, el resto de ErgoSense funciona igual.
+- Una cámara web, para el control mediante gestos, y un micrófono, para el control por voz. Sin ellos, el resto de ErgoSense funciona igual.
 - [uv](https://docs.astral.sh/uv/), que administra Python y las dependencias. Si falta Python 3.12, uv lo descarga solo.
 - El servidor de ErgoSense en Docker (ver `../server/README.md`).
 
@@ -45,7 +45,7 @@ El proyecto está dentro de OneDrive. Por eso, el entorno virtual se crea **fuer
 
 3. En VS Code, ejecuta **Python: Select Interpreter** y elige `C:\venvs\ergosense-desktop\Scripts\python.exe`.
 
-El modelo de detección de la mano (`src/ergosense/gestures/models/hand_landmarker.task`, de MediaPipe, licencia Apache 2.0) viene incluido en el repositorio, así que no hay que descargar nada más.
+El modelo de detección de la mano (`src/ergosense/gestures/models/hand_landmarker.task`, de MediaPipe, licencia Apache 2.0) viene incluido en el repositorio.
 
 ## Ejecutar la aplicación
 
@@ -61,7 +61,7 @@ El modelo de detección de la mano (`src/ergosense/gestures/models/hand_landmark
    uv run ergosense
    ```
 
-Al abrirse, ErgoSense intenta recuperar una sesión guardada. Si no existe, muestra el inicio de sesión y permite abrir el formulario de registro. Después de autenticarse crea una sesión de uso remota, carga la configuración de la cuenta y, si los gestos están activados, enciende la cámara.
+Al abrirse, ErgoSense intenta recuperar una sesión guardada. Si no existe, muestra el inicio de sesión y permite crear una cuenta. Después de autenticarse crea una sesión de uso remota, carga la configuración de la cuenta y enciende la cámara y el micrófono según las preferencias guardadas.
 
 La aplicación se conecta a `http://127.0.0.1:8000/api/v1`. Para usar otra dirección del servidor, indica la URL completa de la API, incluido el prefijo `/api/v1`:
 
@@ -72,7 +72,33 @@ uv run ergosense
 
 Si aparece `Failed to spawn: ergosense`, la terminal no está en la carpeta `desktop`.
 
+## Interfaz
+
+La ventana principal muestra:
+
+- **Cámara:** la imagen en vivo con el seguimiento de la mano y el gesto detectado. Se puede encender solo para revisar el encuadre, sin activar los gestos. Si se apaga mientras los gestos están activos, también se desactivan.
+- **Control con la mano** y **Control por voz:** cada uno con su interruptor y su estado (desactivado, buscando la mano, escuchando, sin cámara o sin micrófono). Las preferencias se guardan en la cuenta y se aplican sin reiniciar.
+- **Actividad y pausas:** el tiempo del período actual, la última actividad y una vista previa del aviso de pausa.
+- **Barra inferior:** la conexión con el servidor y los indicadores *Cámara en uso* y *Micrófono en uso* (PB-17).
+
+**Ayuda** explica los gestos y los comandos de voz, y **Configuración** permite cambiar el tiempo de inactividad. Los colores, las fuentes y los íconos están en `src/ergosense/ui/theme.py` e `icons.py`.
+
 ## Control mediante gestos
+
+El área lateral es un recuadro horizontal 16:9, equivalente al formato de pantalla
+soportado. Su altura se adapta a las dimensiones del video para conservar esa
+proporción tanto en el dibujo como en el reconocimiento.
+
+La guía interior punteada representa el recorrido del cursor por toda la pantalla.
+El margen entre esa guía y el recuadro exterior deja espacio para los dedos:
+no hace falta llevar el centro de la palma al borde exterior para alcanzar una
+esquina. El suavizado converge hasta el píxel extremo al mantener la mano en la
+esquina de la guía interior.
+
+El recorrido útil se amplió para reducir la sensibilidad. El cursor aplica un
+filtro de tres cuadros y suavizado adaptativo: los movimientos pequeños se
+amortiguan más y los grandes responden con mayor rapidez. Esto reduce el temblor
+y los saltos aislados de detección sin cambiar los gestos de clic o arrastre.
 
 Los gestos se hacen con la **palma de frente a la cámara**, partiendo de la mano abierta. El pulgar funciona como el botón izquierdo y el índice como el derecho.
 
@@ -82,23 +108,62 @@ Los gestos se hacen con la **palma de frente a la cámara**, partiendo de la man
 | Pulgar adentro | Desde la mano abierta, se dobla solo el pulgar hacia la palma | Click izquierdo; si se mantiene 0,4 s o más, arrastre. |
 | Índice abajo | Desde la mano abierta, se dobla solo el índice | Click derecho. |
 | Dos dedos | Índice y medio estirados, el resto doblado | Scroll: subir o bajar la mano. |
-| Puño y "L" | — | Reservados para activar macros en el Sprint 05. |
+| Puño y "L" | Todos los dedos doblados, o índice y pulgar en "L" | Sin acción predefinida: activan las macros que los usen. |
 
-El cursor sigue el centro de la palma, que no se mueve al doblar el pulgar o el índice, y se mueve solo dentro del monitor principal. Para evitar activaciones accidentales (PB-13), un gesto debe mantenerse unos 0,1 s para contar, cada click se ejecuta una sola vez y las poses que no corresponden a un gesto no hacen nada.
+El cursor sigue el centro de la palma dentro del recuadro lateral «Área de acción», que representa todo el monitor principal. No es necesario cruzar la mano por delante de la cara: el borde izquierdo del recuadro corresponde al extremo izquierdo de la pantalla y el derecho al extremo derecho. En Configuración se elige el lado derecho o izquierdo de la imagen en espejo; el lado elegido se guarda en la cuenta.
 
-La fila **Gestos** de la ventana muestra si el control está desactivado, si no hay cámara o qué gesto se reconoce.
+Fuera del recuadro no se mueve el cursor ni se ejecutan clics, scroll o macros de gesto. Al salir se cancela un clic pendiente y se libera cualquier arrastre. Al volver a entrar se exige otra vez un gesto estable. La voz y el monitoreo continúan funcionando. La vista muestra la imagen completa, con bandas si hacen falta, para que el recuadro visible coincida con el área reconocida.
+
+Para evitar activaciones accidentales (PB-13), un gesto debe mantenerse unos 0,1 s para contar, cada click se ejecuta una sola vez y las poses que no corresponden a un gesto no hacen nada.
 
 Los umbrales de cada gesto están en `src/ergosense/gestures/classifier.py` y se calibraron con una mano real. Para calibrarlos con otra mano, ejecuta `uv run python scripts/calibrate_gestures.py`, sigue las instrucciones en pantalla y ajusta las constantes con los valores que muestra.
 
+## Control por voz
+
+El reconocimiento usa [Vosk](https://alphacephei.com/vosk/) con el modelo `vosk-model-small-es-0.42`. Funciona **sin internet**: el audio se procesa en este equipo y no se guarda (RNF-17).
+
+**El modelo se descarga solo** la primera vez que se activa la voz: son unos 40 MB, y la tarjeta de voz muestra el avance. Es lo único que usa internet, y no envía nada del usuario. Antes de instalarlo, ErgoSense comprueba la huella SHA-256 del archivo: si no coincide, el archivo está dañado o alterado y no se instala. El modelo queda en `%LOCALAPPDATA%\ErgoSense\models`, fuera de OneDrive y del repositorio, y no se vuelve a descargar. Si no hay conexión, la tarjeta muestra *No se pudo descargar*; basta volver a activar la voz para reintentar. Lo demás de ErgoSense funciona igual.
+
+Para dejarlo listo antes, por ejemplo en un equipo que después estará sin internet, ejecuta `uv run python scripts/download_voice_model.py`.
+
+Los comandos son `clic izquierdo`, `clic derecho`, `subir`, `bajar`, `activar gestos`, `desactivar gestos`, `activar voz`, `desactivar voz`, `activar gestos y voz` y `desactivar gestos y voz`. Subir y bajar desplazan la rueda un paso, y los clicks actúan en la posición actual del cursor. Las acciones de voz y de gestos pasan por el mismo ejecutor, de a una y en orden.
+
+Para no ejecutar acciones con frases que no son comandos (RNF-03):
+
+- Vosk solo elige entre los comandos y una lista de palabras frecuentes del español (`src/ergosense/voice/grammar.py`). Sin esas palabras, "vamos a trabajar" se confundía con "bajar".
+- Solo se acepta la frase completa: "subir el volumen" o "activar" solos no hacen nada.
+
+En pruebas con audios generados por la voz en español de Windows, se reconocieron los 10 comandos y ninguna de 12 frases distintas se confundió con un comando.
+
+La voz usa el **micrófono predeterminado de Windows**; la tarjeta de voz muestra cuál es. Para usar otro, cámbialo en Configuración → Sistema → Sonido → Entrada. Al apagar la voz se cierra el micrófono; para volver a encenderla se usa el interruptor de la ventana.
+
+## Macros
+
+El botón **Macros** abre el listado de macros de la cuenta, con un interruptor para activar o desactivar cada una (PB-43), y las opciones para crearlas, editarlas y eliminarlas (PB-38). Cada macro tiene:
+
+- **Activadores** (PB-39): una o más frases de voz, o el puño o la "L". No pueden ser un comando de voz base, un gesto con acción predefinida ni el activador de otra macro (PB-44). La interfaz informa el motivo antes de guardar y la API lo vuelve a validar. Las frases se comparan en minúsculas, sin tildes y con espacios simples; deben usar palabras comunes del español, escritas con sus tildes, para que Vosk las reconozca.
+- **Acciones en orden** (PB-40): abrir una URL (`http` o `https`), abrir una aplicación registrada, presionar teclas (por ejemplo `ctrl+shift+t`), escribir un texto de hasta 500 caracteres o hacer click (izquierdo, derecho o doble). Las flechas cambian el orden.
+
+Al reconocer un activador de una macro activada, con la voz o los gestos activados según corresponda, sus acciones pasan en orden por el mismo ejecutor de los gestos y la voz, una sola vez por activación (PB-42). Primero se resuelven los comandos y gestos predefinidos.
+
+**Aplicaciones** (PB-41): como la ruta de un programa cambia en cada equipo, las aplicaciones se registran por computador, con su nombre y la ruta del `.exe`. Una acción "abrir aplicación" guarda el nombre y, al ejecutarse, usa la aplicación registrada con ese nombre en este computador. Si no existe, ErgoSense pide registrarla. El computador se identifica por su nombre de equipo de Windows.
+
+Las macros y las aplicaciones se guardan en el servidor y se descargan al iniciar sesión, en cualquier computador (PB-45). El código está en `src/ergosense/macros/` y la ventana en `src/ergosense/ui/macros_dialog.py`.
+
+## Pérdida de conexión
+
+La aplicación necesita conexión para iniciar sesión. Después, si el servidor deja de responder (PB-50):
+
+- La barra inferior muestra *Sin conexión con el servidor* y aparece un aviso.
+- El monitoreo, los avisos, los gestos, la voz y las macros siguen funcionando con lo que ya estaba cargado. Activar o desactivar gestos o voz también funciona y se guarda al reconectar.
+- Las sesiones de uso, las pausas y los cambios de configuración esperan en una cola en memoria, en orden (`src/ergosense/api_client/pending.py`). Cada operación sale de la cola solo cuando el servidor responde.
+- Cada 30 segundos se consulta `GET /health`; al volver la conexión, se envía todo lo pendiente. Al cerrar la aplicación se hace un último intento. Lo que siga pendiente al cerrar sin conexión se pierde, como permite PB-50.
+
+Crear o editar macros y aplicaciones requiere conexión, porque el servidor valida y guarda cada cambio.
+
 ## Configuración
 
-El botón **Configuración** de la ventana permite:
-
-- cambiar el tiempo de inactividad para registrar una pausa, en minutos enteros entre 1 y 480 (10 por defecto);
-- activar o desactivar el control mediante gestos;
-- activar o desactivar el control por voz, que se usará desde el Sprint 04.
-
-Los cambios se guardan en el servidor, asociados a la cuenta, y se aplican de inmediato, sin reiniciar. El aviso de pausa de 60 minutos no es configurable.
+El botón **Configuración** permite cambiar el tiempo de inactividad para registrar una pausa, en minutos enteros entre 1 y 480 (10 por defecto). El cambio se guarda en el servidor y se aplica de inmediato. El aviso de pausa de 60 minutos no es configurable.
 
 ## Variables solo para desarrollo
 
@@ -108,6 +173,7 @@ Permiten probar sin esperar los tiempos reales. El usuario final nunca las usa.
 |---|---|
 | `ERGOSENSE_LIMIT_SECONDS` | Acorta el período de aviso de 60 minutos. |
 | `ERGOSENSE_INACTIVITY_SECONDS` | Acorta el tiempo de inactividad; tiene prioridad sobre la configuración de la cuenta. |
+| `ERGOSENSE_VOICE_MODEL` | Usa el modelo de voz de otra carpeta. |
 
 ```powershell
 $env:ERGOSENSE_LIMIT_SECONDS = "30"
@@ -133,7 +199,7 @@ uv run ruff check                    # análisis de estilo
 uv run ruff format                   # formato del código
 ```
 
-Las pruebas no necesitan cámara, servidor ni pantalla: usan relojes, cámaras, manos y mouse falsos, y las ventanas se crean sin mostrarse. Cada prueba indica en su nombre el caso del Plan de pruebas que verifica, por ejemplo `test_cp_03_07_...`.
+Las pruebas no necesitan cámara, micrófono, modelo de voz, servidor ni pantalla: usan relojes, cámaras, micrófonos, manos y mouse falsos, y las ventanas se crean sin mostrarse. Cada prueba indica en su nombre el caso del Plan de pruebas que verifica, por ejemplo `test_cp_03_07_...`.
 
 Los casos que requieren interacción real se prueban de forma manual con los scripts de `scripts/`:
 
@@ -148,8 +214,67 @@ Los casos que requieren interacción real se prueban de forma manual con los scr
 | `demo_control.py` | CP-03-05 a CP-03-10: control completo. Los clicks son reales; se sale con Esc. |
 | `calibrate_gestures.py` | Calibración de los umbrales de los gestos. |
 | `measure_gestures.py` | RNF-05, RNF-06 y RNF-08: cuadros por segundo, tiempo entre el gesto y el click, y uso de CPU. |
+| `download_voice_model.py` | Descarga el modelo de voz por adelantado (opcional: la app lo descarga sola). |
 
 Se ejecutan desde la carpeta `desktop`, por ejemplo `uv run python scripts/demo_control.py`.
+
+### Validación de la voz con dispositivos
+
+1. Iniciar la API y entrar a ErgoSense con una cuenta.
+2. Activar la voz y comprobar el indicador *Micrófono en uso* y el nombre del micrófono.
+3. Decir cada comando después de una pausa y comprobar una acción por frase.
+4. Probar conversaciones, ruido y frases parecidas; no deben ejecutar acciones.
+5. Activar y desactivar gestos, voz y ambos, con los interruptores y con los comandos.
+6. Apagar la voz y comprobar que hablar ya no ejecuta acciones ni usa el micrófono.
+7. Reiniciar la aplicación y comprobar que se mantienen las preferencias.
+8. Probar sin micrófono y sin internet: el monitoreo y los gestos deben seguir funcionando.
+
+## Escritura por voz
+
+Con el control por voz activo y el micrófono listo, decir **iniciar dictado** o
+**activar dictado**, o usar el botón **Iniciar dictado**. Esperar el estado
+**Dictando**, seleccionar el campo de destino con un gesto y hablar. Cada frase
+se escribe al hacer una pausa; el destino es el campo que tenga el foco.
+
+El dictado utiliza Whisper small con faster-whisper en CPU; los comandos cortos
+mantienen Vosk. La primera preparación descarga unos 486 MB en la carpeta local
+de ErgoSense, fuera del repositorio. Después funciona sin internet. El modelo de
+dictado ya instalado se reutiliza y no se descarga en cada inicio.
+
+Un único icono semitransparente de micrófono permanece arriba a la derecha sobre
+las demás aplicaciones. Ámbar significa preparación, verde escucha y azul
+transcripción. Esperar al verde para empezar. El icono no toma foco ni intercepta
+clics, y desaparece al terminar el dictado. Cada frase puede tardar unos segundos
+en aparecer; se conserva la puntuación automática que genere el reconocedor.
+
+Durante el dictado, **enviar texto** y **nueva línea** pulsan Enter;
+**borrar palabra** pulsa Ctrl+Retroceso. **Terminar dictado** o **desactivar
+dictado** vuelve al modo de comandos. Estas órdenes se dicen en frases separadas.
+Para puntuar se puede decir **punto**, **coma**, **dos puntos**, **punto y coma**,
+**abrir interrogación** o **cerrar interrogación** en frases separadas.
+
+Los comandos de clic y las frases de macros se escriben como texto mientras se
+dicta. **Desactivar voz** sigue cerrando el micrófono. Apagar la voz, perder el
+micrófono o reiniciar cancela el dictado. El modo es temporal y no se sincroniza
+con la cuenta. El audio y las transcripciones se procesan localmente y no se
+guardan ni se envían al servidor. El modelo instalado permite dictar sin internet
+durante una sesión ya abierta.
+
+El reconocimiento puede equivocarse con palabras, nombres y puntuación. Revisar
+el resultado antes de decir **enviar texto**. No incluye transcripción de archivos
+ni otros idiomas. Utiliza el mismo modelo y las dependencias existentes.
+
+Muestras reproducibles de voz sintetizada, sin abrir el micrófono ni escribir en
+otras aplicaciones:
+
+```powershell
+uv run python scripts/check_voice_samples.py
+uv run python scripts/check_voice_samples.py --dictation
+uv run python scripts/check_voice_samples.py --dictation-long --compare-previous
+```
+
+Estas muestras requieren Windows y una voz SAPI en español. No reemplazan la
+validación con voz humana. Los casos de aceptación son CP-06-13 a CP-06-21.
 
 ## Estructura
 
@@ -157,22 +282,24 @@ Se ejecutan desde la carpeta `desktop`, por ejemplo `uv run python scripts/demo_
 desktop/
 ├── src/ergosense/
 │   ├── actions/      # acciones del mouse y ejecutor único con cola (clicks y scroll)
-│   ├── api_client/   # solicitudes HTTP, tokens y almacén seguro
+│   ├── api_client/   # solicitudes HTTP, tokens, almacén seguro y cola de pendientes
 │   ├── app/          # arranque, controlador del monitoreo y aplicación de la configuración
 │   ├── gestures/     # cámara, detección de la mano, gestos, cursor e hilo de gestos
+│   ├── macros/       # catálogo, macros y aplicaciones, ejecución de acciones
 │   ├── monitoring/   # actividad, período de 60 minutos e inactividad
-│   └── ui/           # ventanas: acceso, principal y configuración
+│   ├── ui/           # ventanas, tema visual, íconos y componentes
+│   └── voice/        # comandos, lista de frases de Vosk, reconocedor e hilo de voz
 ├── tests/            # pruebas automatizadas (pytest), con la misma estructura que src
-├── scripts/          # pruebas manuales y calibración
+├── scripts/          # pruebas manuales, calibración y descarga del modelo de voz
 └── pyproject.toml    # dependencias y configuración del proyecto
 ```
 
 La organización en capas sigue el Documento de arquitectura:
 
-- `monitoring` y la lógica de `gestures` (clasificador, cursor e intérprete) no conocen la interfaz ni el hardware, por lo que se prueban de forma aislada.
+- `monitoring` y la lógica de `gestures` y `voice` (clasificador, cursor, intérprete y comandos) no conocen la interfaz ni el hardware, por lo que se prueban de forma aislada.
 - `api_client` solo conversa con el servidor; `app` une los módulos y le indica a la ventana qué mostrar.
-- La aplicación usa varios hilos: la ventana y el temporizador de cada segundo corren en el hilo principal de Qt; la escucha de teclado y mouse, en los hilos de pynput; la cámara y los gestos, en el hilo `gestos`; y los clicks y el scroll, en el hilo `acciones`, de a uno y en orden. Los demás hilos se comunican con la ventana mediante señales de Qt, porque solo el hilo principal puede modificarla.
-- Usar los gestos cuenta como actividad, por lo que no se registra una pausa mientras se controla el computador con la mano.
+- La aplicación usa varios hilos: la ventana y el temporizador de cada segundo corren en el hilo principal de Qt; la escucha de teclado y mouse, en los hilos de pynput; la cámara y los gestos, en el hilo `gestos`; el micrófono y Vosk, en el hilo de voz; y los clicks y el scroll, en el hilo `acciones`, de a uno y en orden. Los demás hilos se comunican con la ventana mediante señales de Qt, porque solo el hilo principal puede modificarla.
+- Usar los gestos o la voz cuenta como actividad, por lo que no se registra una pausa mientras se controla el computador sin el teclado ni el mouse.
 
 ## Seguridad de la sesión
 

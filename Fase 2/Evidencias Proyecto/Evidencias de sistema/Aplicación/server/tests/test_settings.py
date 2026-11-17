@@ -68,6 +68,7 @@ def test_solo_cambia_los_campos_enviados(client):
         "inactivity_break_minutes": 10,  # sigue el valor por defecto
         "voice_enabled": True,
         "gesture_enabled": False,
+        "gesture_control_side": "right",
     }
 
 

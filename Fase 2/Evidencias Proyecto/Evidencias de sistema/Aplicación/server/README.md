@@ -77,6 +77,13 @@ uv run uvicorn app.main:app --reload
 | PATCH | `/api/v1/usage-sessions/{session_id}` | Finaliza una sesión de uso. |
 | POST | `/api/v1/usage-sessions/{session_id}/breaks` | Inicia una pausa en la sesión indicada. |
 | PATCH | `/api/v1/breaks/{break_id}` | Finaliza una pausa. |
+| GET, POST | `/api/v1/macros` | Lista las macros con sus activadores y acciones, o crea una (Sprint 05). |
+| PUT, DELETE | `/api/v1/macros/{macro_id}` | Reemplaza o elimina una macro, incluidos sus activadores y acciones. |
+| PATCH | `/api/v1/macros/{macro_id}` | Activa o desactiva una macro: `{"enabled": false}`. |
+| GET, POST | `/api/v1/applications` | Lista las aplicaciones de un computador (`?device_name=`) o registra una. |
+| PUT, DELETE | `/api/v1/applications/{application_id}` | Modifica o elimina una aplicación registrada. |
+
+Las macros validan sus activadores contra el catálogo compartido de `app/core/catalog.py`: una frase no puede ser un comando de voz base, un gesto no puede tener una acción predefinida y ningún activador puede repetirse entre las macros de la cuenta (409 con el motivo en español). Solo se aceptan los tipos de acción `OPEN_URL`, `OPEN_APP`, `KEY_PRESS`, `TYPE_TEXT` y `MOUSE_CLICK`, con un valor válido para cada uno. El orden de las acciones es su posición en la lista. El Sprint 05 no modifica el modelo de datos: usa las tablas creadas en el Sprint 02.
 
 Las rutas privadas exigen `Authorization: Bearer <access_token>`. El servidor obtiene `user_id` desde el token; no confía en un identificador enviado por el cliente.
 
