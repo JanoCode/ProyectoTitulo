@@ -5,6 +5,7 @@ from PySide6.QtWidgets import QDialog, QLabel, QLineEdit, QVBoxLayout
 
 from ergosense.api_client import ApiClientError
 from ergosense.ui import icons, theme
+from ergosense.ui.connection_dialog import ConnectionDialog
 from ergosense.ui.widgets import button, label, restyle
 
 REQUIRED_FIELD = "Completa este campo para continuar"
@@ -173,6 +174,15 @@ class LoginDialog(QDialog):
         register.clicked.connect(self.open_register)
         layout.addSpacing(6)
         layout.addWidget(register, 0, Qt.AlignmentFlag.AlignHCenter)
+        connection = button("Configurar conexión", "link")
+        connection.clicked.connect(self.configure_connection)
+        layout.addWidget(connection, 0, Qt.AlignmentFlag.AlignHCenter)
+
+    def configure_connection(self):
+        dialog = ConnectionDialog(self._api_client, self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            self.password_input.clear()
+            self.error_label.setText("Conexión guardada. Inicia sesión para continuar.")
 
     def submit(self) -> None:
         """Revisa que no falten datos y después consulta al servidor."""

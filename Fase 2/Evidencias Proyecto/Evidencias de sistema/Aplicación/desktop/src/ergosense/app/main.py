@@ -18,6 +18,7 @@ from ergosense.actions.mouse import MouseActions
 from ergosense.actions.screen import primary_screen
 from ergosense.api_client import ApiClient, ApiClientError
 from ergosense.api_client.pending import PendingQueue
+from ergosense.app.connection import server_url
 from ergosense.app.controller import MonitorController
 from ergosense.app.preferences import PreferencesController
 from ergosense.app.remote_session import RemoteUsageSession
@@ -59,7 +60,7 @@ def main():
     app.setWindowIcon(icons.app_icon())
 
     # La URL puede cambiar en otro computador sin modificar el código.
-    api_url = os.environ.get("ERGOSENSE_API_URL", "http://127.0.0.1:8000/api/v1")
+    api_url = server_url()
     api_client = ApiClient(api_url)
 
     # El refresh token protegido permite reabrir la aplicación sin guardar la clave.
