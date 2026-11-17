@@ -1,0 +1,33 @@
+name: Paquete Windows
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    env:
+      QT_QPA_PLATFORM: offscreen
+    defaults:
+      run:
+        working-directory: 'Fase 2/Evidencias Proyecto/Evidencias de sistema/Aplicación/desktop'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install uv==0.12.10
+      - run: uv sync --locked --group build
+      - run: uv run --group build ruff check
+      - run: uv run --group build python -m pytest
+      - run: uv run --group build python scripts/build_windows.py --output "$env:RUNNER_TEMP/ergosense-portable"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ErgoSense-Windows-x64
+          path: |
+            ${{ runner.temp }}/ergosense-portable/ErgoSense-Windows-x64.zip
+            ${{ runner.temp }}/ergosense-portable/ErgoSense-Windows-x64.zip.sha256
+            ${{ runner.temp }}/ergosense-portable/verificacion-ejecutable.json
+          compression-level: 0
+          retention-days: 14

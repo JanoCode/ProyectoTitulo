@@ -1,0 +1,44 @@
+ErgoSense para Windows x64
+
+1. Extrae el ZIP completo a una carpeta del computador.
+2. Abre ErgoSense.exe. Conserva a su lado las carpetas _internal, models y licenses.
+3. Inicia sesión con tu cuenta. No necesitas instalar Python, uv ni los modelos.
+
+CONEXIÓN
+El servidor de cuentas y la base de datos deben estar funcionando. El ejecutable
+es el cliente de escritorio; no instala PostgreSQL ni inicia Docker.
+
+En este mismo computador, la dirección predeterminada es:
+http://127.0.0.1:8000/api/v1
+
+En otro computador, pulsa "Configurar conexión" al iniciar sesión e indica la
+dirección del servidor. Ejemplo en una red local:
+http://192.168.1.20:8000/api/v1
+
+El equipo del servidor debe permitir esa conexión en su red y firewall.
+Para conectarte desde internet, utiliza un servidor publicado con HTTPS.
+127.0.0.1 siempre significa el computador donde estás abriendo la aplicación.
+
+USO
+El indicador flotante muestra gestos, voz y el estado del dictado aunque la
+ventana principal esté minimizada. "Escuchando" confirma que puedes dictar;
+"Preparando" indica que el modelo todavía se está cargando y "Procesando" que
+se está transcribiendo. Los mensajes de activación y errores aparecen sobre
+las otras ventanas, sin quitar el foco ni interceptar clics.
+
+Permite a Windows acceder a cámara y micrófono. Los modelos incluidos procesan
+gestos, comandos y dictado en el propio computador. La transcripción necesita
+CPU y puede tardar más en equipos con menos recursos. Windows 10/11 de 64 bits
+es el destino del paquete; no sirve para macOS, Linux ni Windows ARM nativo.
+
+CONFIGURACIÓN Y ERRORES
+La conexión se guarda en %LOCALAPPDATA%\ErgoSense\connection.json.
+Las credenciales se guardan en el Administrador de credenciales de Windows.
+Los errores de inicio se registran en %LOCALAPPDATA%\ErgoSense\logs\desktop.log.
+No abras el ejecutable directamente dentro del ZIP ni copies solo el archivo EXE.
+
+El paquete no tiene firma digital de un certificado comercial. Windows puede
+mostrar SmartScreen. Verifica el origen del archivo antes de ejecutarlo.
+
+Las licencias de las dependencias están en licenses. Los modelos Vosk en español
+utilizan licencia Apache 2.0 y Whisper small utiliza licencia MIT.

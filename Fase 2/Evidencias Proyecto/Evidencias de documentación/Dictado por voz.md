@@ -123,6 +123,12 @@ solo por aprobar pruebas automatizadas.
 
 ## Documentos relacionados
 
+La mejora de visibilidad fuera de la aplicación se describe en
+[Avisos de estado](Avisos%20de%20estado.md). El panel flotante ahora reúne gestos,
+voz y dictado, muestra preparación, escucha y procesamiento, y acompaña cada
+cambio de modo con una confirmación visible sobre otras ventanas sin alterar
+el foco del campo de escritura.
+
 El Product Backlog incorpora PB-52. El Sprint Backlog 06 agrega las tareas
 SB06-T35 a SB06-T40 como ampliación del alcance. El Documento de arquitectura
 describe el reconocimiento libre y la entrega al ejecutor. El Plan de pruebas

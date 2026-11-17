@@ -2,7 +2,32 @@
 
 ErgoSense es una aplicación de escritorio para Windows que monitorea el tiempo de uso del computador, recomienda pausas y permite controlar el equipo mediante gestos de la mano y comandos de voz. Desde el Sprint 05 también permite crear macros que se ejecutan con una frase o un gesto.
 
-## Estado actual: Sprint 05
+## Versión portable para Windows
+
+El paquete `ErgoSense-Windows-x64.zip` contiene `ErgoSense.exe`, sus bibliotecas y los modelos locales de gestos, comandos y dictado. Extraer la carpeta completa y abrir el ejecutable; no requiere instalar Python ni uv. Conservar las carpetas `_internal` y `models` junto al EXE. El destino es Windows 10/11 x64; otros sistemas y arquitecturas requieren un paquete específico.
+
+El servidor y PostgreSQL siguen siendo servicios separados. En otro PC, usar **Configurar conexión** en la ventana de ingreso e indicar la dirección del servidor, por ejemplo `http://192.168.1.20:8000/api/v1`. `127.0.0.1` apunta al computador donde se ejecuta el cliente. Para acceso por internet se necesita un servidor publicado con HTTPS. La conexión se guarda en `%LOCALAPPDATA%/ErgoSense/connection.json`; los tokens permanecen en el almacén de credenciales de Windows.
+
+El formato de carpeta evita descomprimir las bibliotecas y modelos en cada inicio. No copiar únicamente el EXE ni ejecutarlo dentro del ZIP. Las licencias se incluyen en `licenses`; el paquete no incorpora firma comercial de Windows. Los errores de inicio se registran en `%LOCALAPPDATA%/ErgoSense/logs/desktop.log`.
+
+### Construir el paquete
+
+Desde `desktop`, en Windows x64:
+
+```powershell
+uv sync --locked --group build
+uv run --group build python scripts/build_windows.py --output C:\entregas\ergosense
+```
+
+El destino debe estar vacío de una distribución anterior. El proceso genera el icono, compila con PyInstaller 6.22.3, incorpora modelos, conserva licencias, verifica el ejecutable y produce un ZIP con huella SHA-256. Necesita internet si faltan los modelos o dependencias. Los modelos no se versionan en Git. La verificación carga Qt, MediaPipe, Vosk y Whisper desde el paquete; no sustituye las pruebas físicas en otro equipo.
+
+La configuración de PyInstaller está en [packaging/ErgoSense.spec](packaging/ErgoSense.spec) y las instrucciones para el usuario en [packaging/LEEME.txt](packaging/LEEME.txt). La estrategia de recolección de recursos sigue la [documentación de PyInstaller](https://pyinstaller.org/en/stable/hooks.html).
+
+## Funcionalidades implementadas
+
+### Avisos sobre otras aplicaciones
+
+El indicador flotante muestra gestos, detección de mano y disponibilidad de voz. Al activar dictado cambia a **Preparando**, **Escuchando** o **Procesando**. Las confirmaciones de activación, desactivación y errores aparecen unos segundos sobre las demás ventanas. No toman el foco ni interceptan clics; funcionan con ErgoSense minimizado. No se necesita volver a la ventana principal para comprobar si el dictado quedó activo. Los detalles y pruebas están en [Avisos de estado](../../../Evidencias%20de%20documentación/Avisos%20de%20estado.md).
 
 | Sprint | Funcionalidad |
 |---|---|
@@ -11,6 +36,8 @@ ErgoSense es una aplicación de escritorio para Windows que monitorea el tiempo 
 | 03 | Control mediante gestos con la cámara web y configuración del usuario (PB-07 a PB-13, PB-36 y PB-37). |
 | 04 | Control por voz sin internet e interfaz de usuario (PB-14 a PB-20). |
 | 05 | Macros personalizadas, aplicaciones registradas, persistencia integrada y pérdida de conexión (PB-38 a PB-45 y PB-50). |
+| 06 | Integración y estabilidad, entorno QA y evidencias de validación. Persisten las pruebas físicas pendientes descritas en VALIDACION.md. |
+| Ampliaciones | Área lateral 16:9 con filtrado del cursor, escritura por dictado local e indicador flotante; distribución portable Windows. |
 
 **Privacidad:** la aplicación registra solo el momento de la última interacción, nunca qué tecla se presionó ni qué botón se usó (RNF-16). Las imágenes de la cámara y el audio del micrófono se procesan en este equipo: nunca se guardan en disco ni se envían a otro servicio (RNF-17).
 

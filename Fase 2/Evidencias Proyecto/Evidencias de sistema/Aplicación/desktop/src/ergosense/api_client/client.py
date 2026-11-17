@@ -34,6 +34,24 @@ class ApiClient:
         self.user = None
         self.settings = None
 
+    @property
+    def base_url(self):
+        return self._base_url
+
+    def check_server(self, base_url):
+        try:
+            response = self._http.get(base_url.rstrip("/") + "/health")
+            response.raise_for_status()
+            if response.json() != {"status": "ok"}:
+                raise ValueError("Respuesta inesperada")
+        except (httpx.HTTPError, ValueError) as error:
+            raise ApiClientError("No se pudo conectar con el servidor ErgoSense.") from error
+
+    def change_server(self, base_url):
+        if self._base_url != base_url.rstrip("/"):
+            self.clear_local_session()
+            self._base_url = base_url.rstrip("/")
+
     def register(self, name: str, email: str, password: str) -> dict:
         """Crea una cuenta; el login continúa siendo una acción separada."""
         return self._request(
