@@ -11,6 +11,11 @@ from ergosense.api_client import ApiClientError
 from ergosense.ui import icons
 from ergosense.ui.auth_dialogs import make_error_label
 from ergosense.ui.widgets import InfoBox, button, divider, label
+from ergosense.voice.audio_settings import (
+    input_devices,
+    save_microphone,
+    selected_microphone,
+)
 
 # El campo solo admite enteros en este rango, así que un valor no válido como 0,
 # un negativo o un decimal no se puede escribir (CP-03-14). El servidor también
@@ -52,6 +57,22 @@ class SettingsDialog(QDialog):
             "Fuera del área no se ejecutan gestos. La imagen está en espejo.",
             "muted", wrap=True,
         ))
+        body.addSpacing(8)
+        body.addWidget(label("Micrófono para voz y dictado", "fieldLabel"))
+        self.microphone_input = QComboBox()
+        self.microphone_input.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+        self.microphone_input.setMinimumContentsLength(20)
+        self.microphone_input.addItem("Predeterminado de Windows", None)
+        for _, device, host in input_devices():
+            self.microphone_input.addItem(device["name"], {"name": device["name"], "hostapi": host})
+        selected = selected_microphone()
+        for index in range(self.microphone_input.count()):
+            if self.microphone_input.itemData(index) == selected:
+                self.microphone_input.setCurrentIndex(index)
+                break
+        self.microphone_input.setMinimumHeight(38)
+        body.addWidget(self.microphone_input)
+        body.addWidget(label("Selecciona el micrófono cercano a tu voz. El cambio se aplica al guardar.", "muted", wrap=True))
         body.addSpacing(8)
         body.addWidget(label("Registro de pausas", "muted"))
         body.addWidget(label("Tiempo de inactividad", "fieldLabel"))
@@ -98,7 +119,8 @@ class SettingsDialog(QDialog):
                 {"inactivity_break_minutes": self.minutes_input.value(),
                  "gesture_control_side": self.side_input.currentData()}
             )
-        except ApiClientError as error:
+            save_microphone(self.microphone_input.currentData())
+        except (ApiClientError, OSError) as error:
             # Si el servidor rechaza el cambio, se conserva la configuración anterior.
             self.error_label.setText(str(error))
             return

@@ -1,4 +1,4 @@
-from PySide6.QtCore import QObject, QRectF, Qt, QTimer, Slot
+from PySide6.QtCore import QObject, QRectF, Qt, QTimer, Signal, Slot
 from PySide6.QtGui import QColor, QCursor, QFont, QFontMetrics, QPainter
 from PySide6.QtWidgets import QApplication, QWidget
 
@@ -109,6 +109,8 @@ class DesktopNotice(FloatingPanel):
 
 
 class DesktopFeedback(QObject):
+    requested = Signal(str, str)
+
     def __init__(self):
         super().__init__()
         self.indicator = ModeIndicator()
@@ -123,6 +125,7 @@ class DesktopFeedback(QObject):
         self.dictation_state = "preparing"
         self._dictation_ready = False
         self._closed = False
+        self.requested.connect(self.notify)
 
     @Slot(str, str)
     def notify(self, text, kind="success"):

@@ -40,6 +40,7 @@ from ergosense.ui.macros_dialog import ApplicationsDialog, MacrosDialog
 from ergosense.ui.main_window import MainWindow
 from ergosense.ui.settings_dialog import SettingsDialog
 from ergosense.ui.theme import apply_theme
+from ergosense.voice.audio_settings import selected_microphone
 from ergosense.voice.controller import VoiceController
 from ergosense.voice.worker import VoiceWorker
 
@@ -144,7 +145,8 @@ def main():
     mouse = MouseActions()
     # El mismo ejecutor atiende los clicks de gestos y voz y los pasos de las macros.
     runner = ActionRunner(
-        mouse, on_error=lambda message: macro_controller.report_error(message)
+        mouse, on_error=lambda message: macro_controller.report_error(message),
+        on_enter=lambda: feedback.requested.emit("Enter enviado.", "success"),
     )
     executor = ActionExecutor(
         runner.perform,
@@ -173,6 +175,7 @@ def main():
     # si el control por gestos está activado.
     voice = VoiceWorker()
     voice.status_changed.connect(window.show_voice_status)
+    voice.audio_warning.connect(lambda message: window.show_toast(message, "waiting"))
     voice.status_changed.connect(feedback.voice_status)
     voice.microphone_changed.connect(window.show_microphone)
     preferences = PreferencesController(
@@ -294,8 +297,11 @@ def main():
 
     def open_settings():
         """Abre la configuración y, si se guardó, la aplica sin reiniciar (PB-37)."""
+        microphone = selected_microphone()
         dialog = SettingsDialog(api_client, window)
         if dialog.exec() == QDialog.DialogCode.Accepted:
+            if selected_microphone() != microphone:
+                voice.stop()
             preferences.apply(api_client.settings)
             window.show_toast("Preferencias guardadas.")
 
