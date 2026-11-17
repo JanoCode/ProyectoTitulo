@@ -112,3 +112,22 @@ Registrar fecha, equipo, resultado y evidencia para cada caso:
 La simulación automatizada de 24 horas verifica la lógica con reloj controlado;
 no acredita 24 horas de uso real ni mide precisión de dispositivos. El Sprint 06
 requiere completar y registrar las pruebas prácticas antes de su cierre total.
+
+## Avisos y distribución portable
+
+El cliente incluye avisos e indicadores sobre otras aplicaciones. La prueba
+nativa `desktop/scripts/check_desktop_feedback.py` comprobó flags de ventana
+superior, transparencia de entrada, ausencia de activación, conservación del foco
+y cierre. La suite de escritorio obtuvo 386 aprobadas y siete omitidas.
+
+Para validar la interacción completa, minimizar ErgoSense, activar dictado por
+voz sobre un campo de otra aplicación y comprobar preparación, escucha,
+procesamiento, escritura y desactivación sin cambio de foco. Repetir para gestos
+y errores de dispositivo. La prueba nativa de ventanas no sustituye este ensayo
+con cámara y micrófono reales.
+
+La construcción portable ejecuta `ErgoSense.exe --self-test <archivo.json>` desde
+la distribución y carga Qt, el seguimiento de mano, Vosk, VAD, Whisper y los avisos.
+No abre la cámara ni envía credenciales en esa verificación. Tras trasladar el ZIP
+a otro PC, extraerlo completo, configurar la URL del servidor y repetir el ensayo
+de uso. La conexión local 127.0.0.1 no identifica al equipo de origen.
